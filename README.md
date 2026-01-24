@@ -1,4 +1,4 @@
-# Azure Learning Lab 🚀
+# Azure Landing Zone 🚀
 
 A hands-on Azure Landing Zone implementation demonstrating enterprise governance patterns using Terraform.
 
