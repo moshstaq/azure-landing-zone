@@ -1,0 +1,10 @@
+
+# Your name or alias (lowercase, 2-10 characters)
+# This becomes the prefix for all resources: rg-{yourname}-platform-core
+your_name = "your_name"
+
+# Azure region (eastus2 is good - usually cheapest)
+location = "eastus2"
+
+# Your email for budget alerts (IMPORTANT!)
+alert_email = "your.email@example.com"
