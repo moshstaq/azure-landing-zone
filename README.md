@@ -58,20 +58,20 @@ See docs/learning-log.md for detailed notes.
 
 - 00-foundation/ # Core governance infrastructure
 
-# 01-labs/ # Disposable learning environments
+### 01-labs/ # Disposable learning environments
 
 - compute/ # VMs, containers
 - networking/ # VNets, peering, NSGs
 - monitoring/ # Alerts, dashboards
 
-# docs/
+### docs/
 
 - learning-log.md # What I learned
 - interview-prep.md # Q&A from experience
 
-# scripts/ # Helper scripts
+### scripts/ # Helper scripts
 
-## Cost Management
+### Cost Management
 
 - Budget alerts set at $20/month
 - Governance resources: Free
