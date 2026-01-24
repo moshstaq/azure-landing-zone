@@ -13,19 +13,21 @@ A hands-on Azure Landing Zone implementation demonstrating enterprise governance
 
 ## Architecture
 
-Management Groups:
-└── yourname-learning
-├── yourname-platform
-└── yourname-workloads
-└── [Subscription]
-├── rg--platform- (permanent)
-└── rg--lab- (disposable)
+### Management Groups:
+
+- yourname-learning
+- yourname-platform
+- yourname-workloads
+- [Subscription]
+- rg--platform- (permanent)
+- rg--lab- (disposable)
 
 Network:
-└── Hub VNet (10.0.0.0/16)
-└── snet-shared-services (10.0.0.0/24)
-Spoke VNets (labs):
-└── 10.x.0.0/16 (peered to hub)
+
+- Hub VNet (10.0.0.0/16)
+- snet-shared-services (10.0.0.0/24)
+  Spoke VNets (labs):
+- 10.x.0.0/16 (peered to hub)
 
 ## Getting Started
 
