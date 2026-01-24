@@ -1,15 +1,22 @@
 # Azure Landing Zone 🚀
 
-A hands-on Azure Landing Zone implementation demonstrating enterprise governance patterns using Terraform.
+Enterprise-grade Azure governance implemented with Terraform.
 
-## What This Project Demonstrates
+[![Terraform](https://img.shields.io/badge/Terraform-1.5+-623CE4?logo=terraform)](https://terraform.io)
+[![Azure](https://img.shields.io/badge/Azure-Landing%20Zone-0078D4?logo=microsoft-azure)](https://azure.microsoft.com)
 
-- **Management Group Hierarchy** - Organizing subscriptions with policy inheritance
-- **Azure Policy** - Compliance enforcement (audit mode for learning)
-- **Network Architecture** - Hub VNet ready for spoke peering
-- **Identity & Access** - Entra ID groups, RBAC, Service Principal
-- **Cost Management** - Budget alerts and resource tagging
-- **Infrastructure as Code** - Terraform with remote state
+## Overview
+
+This project demonstrates production-ready Azure governance patterns:
+
+- **Management Groups** — Hierarchical policy inheritance
+- **Azure Policy** — Compliance enforcement and auditing
+- **Hub-Spoke Network** — Centralized connectivity with security controls
+- **Identity & Access** — Entra ID groups, RBAC, Service Principal
+- **Cost Management** — Budgets, alerts, and tagging policies
+- **Observability** — Centralized Log Analytics workspace
+
+> Built as a hands-on learning project while preparing for Cloud Engineer roles.
 
 ## Architecture
 
