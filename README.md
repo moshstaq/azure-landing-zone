@@ -56,16 +56,20 @@ See docs/learning-log.md for detailed notes.
 
 ### Project Structure
 
-.
-├── 00-foundation/ # Core governance infrastructure
-├── 01-labs/ # Disposable learning environments
-│ ├── compute/ # VMs, containers
-│ ├── networking/ # VNets, peering, NSGs
-│ └── monitoring/ # Alerts, dashboards
-├── docs/
-│ ├── learning-log.md # What I learned
-│ └── interview-prep.md # Q&A from experience
-└── scripts/ # Helper scripts
+- 00-foundation/ # Core governance infrastructure
+
+# 01-labs/ # Disposable learning environments
+
+- compute/ # VMs, containers
+- networking/ # VNets, peering, NSGs
+- monitoring/ # Alerts, dashboards
+
+# docs/
+
+- learning-log.md # What I learned
+- interview-prep.md # Q&A from experience
+
+# scripts/ # Helper scripts
 
 ## Cost Management
 
