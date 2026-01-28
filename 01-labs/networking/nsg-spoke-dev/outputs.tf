@@ -26,3 +26,6 @@ output "security_rules_summary" {
     flow_logs = "VNet-level (covers all subnets)"
   }
 }
+
+
+
