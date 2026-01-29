@@ -41,9 +41,9 @@ jobs:
                   terraform_version: "1.12.2"
 
             - name: Terraform Init (Foundation)
-              working-directory: ./00-foundation
+              working-directory: ./00-foundation/cicd-managed
               run: terraform init
 
             - name: Terraform Apply (Foundation)
-              working-directory: ./00-foundation
+              working-directory: ./00-foundation/cicd-managed
               run: terraform apply -auto-approve -input=false

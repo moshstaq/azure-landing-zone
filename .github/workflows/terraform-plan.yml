@@ -42,15 +42,15 @@ jobs:
           terraform_version: "1.12.2"
 
       - name: Terraform Init
-        working-directory: ./00-foundation
+        working-directory: ./00-foundation/cicd-managed
         run: terraform init
 
       - name: Terraform Validate
-        working-directory: ./00-foundation
+        working-directory: ./00-foundation/cicd-managed
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: ./00-foundation
+        working-directory: ./00-foundation/cicd-managed
         run: terraform plan -no-color -input=false
         continue-on-error: true
 

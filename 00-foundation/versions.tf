@@ -22,7 +22,7 @@ terraform {
     resource_group_name  = "rg-moshstaq-tfstate"
     storage_account_name = "stmoshstaqtfstm0n4"
     container_name       = "tfstate"
-    key                  = "foundation.tfstate"
+    key                  = "foundation-cicd.tfstate"
   }
 }
 
