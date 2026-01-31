@@ -1,53 +1,36 @@
-output "connection_info" {
-  value = <<-EOT
-
-  =====================================================
-  🖥️  LINUX VM DEPLOYED!
-  =====================================================
-
-  VM Name:     ${azurerm_linux_virtual_machine.lab.name}
-  Public IP:   ${azurerm_public_ip.vm.ip_address}
-  Username:    azureuser
-  Size:        Standard_B1s (FREE TIER)
-  
-  Auto-shutdown: 7:00 PM EST daily
-
-  -----------------------------------------------------
-  TO CONNECT:
-  -----------------------------------------------------
-
-  1. Save the SSH key:
-     terraform output -raw ssh_private_key > ~/.ssh/lab-vm.pem
-     chmod 600 ~/.ssh/lab-vm.pem
-
-  2. Connect:
-     ssh -i ~/.ssh/lab-vm.pem azureuser@${azurerm_public_ip.vm.ip_address}
-
-  -----------------------------------------------------
-  LEARNING EXERCISES:
-  -----------------------------------------------------
-  
-  • Install nginx: sudo apt update && sudo apt install nginx -y
-  • Check Azure VM metrics in Portal
-  • Practice Azure CLI from inside the VM
-  • Try stopping/starting from Portal and CLI
-
-  -----------------------------------------------------
-  CLEANUP (when done):
-  -----------------------------------------------------
-  
-  terraform destroy
-
-  =====================================================
-
-  EOT
+output "vm_name" {
+  description = "Name of the virtual machine"
+  value       = azurerm_linux_virtual_machine.vm.name
 }
 
-output "ssh_private_key" {
-  value     = tls_private_key.ssh.private_key_pem
-  sensitive = true
+output "vm_id" {
+  description = "ID of the virtual machine"
+  value       = azurerm_linux_virtual_machine.vm.id
 }
 
-output "public_ip" {
-  value = azurerm_public_ip.vm.ip_address
+output "vm_private_ip" {
+  description = "Private IP address of the VM"
+  value       = azurerm_network_interface.vm.private_ip_address
+}
+
+output "vm_identity_principal_id" {
+  description = "Principal ID of VM managed identity (for Lab 3.2)"
+  value       = azurerm_linux_virtual_machine.vm.identity[0].principal_id
+}
+
+
+output "admin_username" {
+  description = "Admin username"
+  value       = var.admin_username
+}
+
+output "ssh_command" {
+  description = "SSH command (requires network access to private IP)"
+  value       = "ssh -i ~/.ssh/azure-lab-vm ${var.admin_username}@${azurerm_network_interface.vm.private_ip_address}"
+}
+
+
+output "auto_shutdown_time" {
+  description = "Auto-shutdown time (UTC)"
+  value       = "${var.auto_shutdown_time} UTC daily"
 }
