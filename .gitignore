@@ -32,4 +32,7 @@ Thumbs.db
 *.png
 *.jpg
 *.jpeg
-*.gif
+*.gif*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
