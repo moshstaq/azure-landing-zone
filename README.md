@@ -48,8 +48,8 @@ Network:
 
 ```bash
 # Clone this repo
-git clone https://github.com/YOUR_USERNAME/azure-learning-lab.git
-cd azure-learning-lab
+git clone https://github.com/YOUR_USERNAME/azure-landing-zone.git
+cd azure-landing-zone
 
 
 # Deploy platform infrastructure
