@@ -72,10 +72,18 @@ resource "azurerm_policy_definition" "allowed_locations" {
 
   policy_rule = jsonencode({
     if = {
-      not = {
-        field = "location"
-        in    = "[parameters('allowedLocations')]"
-      }
+      allOf = [
+        {
+          field = "location"
+          notIn = "[parameters('allowedLocations')]"
+        },
+        {
+          field     = "location"
+          notEquals = "global"
+        }
+
+      ]
+
     }
     then = {
       effect = "deny"
@@ -90,6 +98,7 @@ resource "azurerm_policy_definition" "allowed_locations" {
         description = "List of allowed Azure regions"
         strongType  = "location"
       }
+      defaultValue = ["eastus2"] # Default to eastus2, can be overridden in assignment
     }
   })
 }
