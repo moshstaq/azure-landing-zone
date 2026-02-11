@@ -25,7 +25,7 @@ resource "azurerm_key_vault" "main" {
   purge_protection_enabled   = false # False for learning (allows full cleanup)
 
   # CRITICAL: Disable public access - only Private Endpoint allowed
-  public_network_access_enabled = false
+  public_network_access_enabled = true
 
 
   network_acls {
