@@ -23,7 +23,3 @@ output "private_dns_zone_name" {
   value       = azurerm_private_dns_zone.keyvault.name
 }
 
-output "test_secret_name" {
-  description = "Name of the test secret"
-  value       = azurerm_key_vault_secret.test.name
-}

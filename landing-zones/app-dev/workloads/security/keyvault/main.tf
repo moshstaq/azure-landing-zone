@@ -46,22 +46,6 @@ resource "azurerm_role_assignment" "kv_admin" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-#--------------------------------------------------------------
-# Test Secret (to verify access works)
-#--------------------------------------------------------------
-resource "azurerm_key_vault_secret" "test" {
-  name         = "test-secret"
-  value        = "Hello-from-Week9-KeyVault"
-  key_vault_id = azurerm_key_vault.main.id
-
-  # Must wait for RBAC to propagate
-  depends_on = [azurerm_role_assignment.kv_admin]
-
-  tags = {
-    Environment = var.environment
-    Purpose     = "testing"
-  }
-}
 
 #--------------------------------------------------------------
 # Private Endpoint for Key Vault
