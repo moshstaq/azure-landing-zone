@@ -17,11 +17,8 @@ env:
     ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     ARM_USE_OIDC: true
     ARM_USE_AZUREAD: true
-    WORKING_DIR: ./platform/identity/github-oidc
+    WORKING_DIR: ./landing-zones/app-dev/networking
     TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-    TF_VAR_github_org: "moshstaq"
-    TF_VAR_github_repo: "azure-learning-zone"
 
 jobs:
     apply:
