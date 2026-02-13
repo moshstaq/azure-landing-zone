@@ -17,3 +17,4 @@ output "service_principal_object_id" {
   description = "Service principal object ID (for reference)"
   value       = azuread_service_principal.github_actions.object_id
 }
+
