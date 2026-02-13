@@ -15,3 +15,13 @@ resource "azurerm_role_assignment" "tfstate_blob_contributor" {
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azuread_service_principal.github_actions.object_id
 }
+
+
+# -----------------------------------------------------
+# RBAC: Read storage account metadata (required for TF backend init)
+# -----------------------------------------------------
+resource "azurerm_role_assignment" "tfstate_reader" {
+  scope                = data.azurerm_resource_group.tfstate.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
