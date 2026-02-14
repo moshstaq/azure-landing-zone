@@ -4,7 +4,7 @@ resource "azurerm_resource_group" "app_dev" {
   location = var.location
 
   tags = {
-    environment = "dev"
+    Environment = "dev"
     workload    = "app"
     managed_by  = "terraform"
   }
@@ -79,7 +79,7 @@ resource "azurerm_virtual_network_peering" "spoke_to_hub" {
   name                      = "peer-appdev-to-hub"
   resource_group_name       = azurerm_resource_group.app_dev.name
   virtual_network_name      = azurerm_virtual_network.app_dev.name
-  remote_virtual_network_id = var.hub_vnet_id
+  remote_virtual_network_id = local.hub_vnet_id
 
   allow_virtual_network_access = true
   allow_forwarded_traffic      = true
@@ -90,8 +90,8 @@ resource "azurerm_virtual_network_peering" "spoke_to_hub" {
 # Peering: Hub to Spoke
 resource "azurerm_virtual_network_peering" "hub_to_spoke" {
   name                      = "peer-hub-to-appdev"
-  resource_group_name       = var.hub_resource_group_name
-  virtual_network_name      = var.hub_vnet_name
+  resource_group_name       = local.hub_resource_group_name
+  virtual_network_name      = local.hub_vnet_name
   remote_virtual_network_id = azurerm_virtual_network.app_dev.id
 
   allow_virtual_network_access = true
