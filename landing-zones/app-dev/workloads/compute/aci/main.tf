@@ -1,12 +1,11 @@
 #--------------------------------------------------------------
-# data sources
+# Data Sources
+#--------------------------------------------------------------
 
 data "azurerm_log_analytics_workspace" "platform" {
   name                = "law-platform"
   resource_group_name = "rg-platform-management"
-
 }
-
 
 #--------------------------------------------------------------
 # Container Group with VNet Integration
@@ -14,10 +13,10 @@ data "azurerm_log_analytics_workspace" "platform" {
 resource "azurerm_container_group" "this" {
   name                = var.container_group_name
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = local.resource_group_name # Changed from var.
   os_type             = "Linux"
   ip_address_type     = "Private"
-  subnet_ids          = [var.subnet_id]
+  subnet_ids          = [local.subnet_id] # Changed from var.
 
   container {
     name   = var.container_name
@@ -29,6 +28,8 @@ resource "azurerm_container_group" "this" {
       port     = 80
       protocol = "TCP"
     }
+
+
   }
 
   #--------------------------------------------------------------
@@ -46,4 +47,6 @@ resource "azurerm_container_group" "this" {
     ManagedBy   = "terraform"
     Project     = "azure-learning-lab"
   }
+
+
 }
