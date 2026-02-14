@@ -1,0 +1,124 @@
+name: Terraform Matrix Plan
+
+on:
+    pull_request:
+        branches: [main]
+        paths:
+            - "platform/**"
+            - "landing-zones/**"
+            - ".github/workflows/terraform-matrix-plan.yml"
+
+permissions:
+    id-token: write
+    contents: read
+    pull-requests: write
+
+env:
+    ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    ARM_USE_OIDC: true
+    ARM_USE_AZUREAD: true
+
+jobs:
+    detect-changes:
+        name: Detect Changed Modules
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.set-matrix.outputs.matrix }}
+            has_changes: ${{ steps.set-matrix.outputs.has_changes }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Get changed files
+              id: changed-files
+              uses: tj-actions/changed-files@v44
+              with:
+                  files: |
+                      platform/**
+                      landing-zones/**
+
+            - name: Determine affected modules
+              id: set-matrix
+              run: |
+                  # Load module configuration
+                  MODULES=$(cat .github/terraform-modules.json)
+
+                  # Get changed files
+                  CHANGED="${{ steps.changed-files.outputs.all_changed_files }}"
+                  echo "Changed files: $CHANGED"
+
+                  # Find modules with changes that are CI-enabled
+                  AFFECTED_MODULES="[]"
+
+                  for path in $(echo "$MODULES" | jq -r '.modules[] | select(.ci_enabled == true) | .path'); do
+                    for file in $CHANGED; do
+                      if [[ "$file" == "$path"* ]]; then
+                        MODULE=$(echo "$MODULES" | jq -c ".modules[] | select(.path == \"$path\")")
+                        AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c ". + [$MODULE]")
+                        break
+                      fi
+                    done
+                  done
+
+                  # Remove duplicates and sort by tier
+                  AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c 'unique | sort_by(.tier)')
+
+                  echo "Affected modules: $AFFECTED_MODULES"
+
+                  if [ "$AFFECTED_MODULES" == "[]" ]; then
+                    echo "has_changes=false" >> $GITHUB_OUTPUT
+                    echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+                  else
+                    echo "has_changes=true" >> $GITHUB_OUTPUT
+                    echo "matrix={\"include\":$AFFECTED_MODULES}" >> $GITHUB_OUTPUT
+                  fi
+
+    plan:
+        name: Plan - ${{ matrix.name }}
+        needs: detect-changes
+        if: needs.detect-changes.outputs.has_changes == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Azure Login (OIDC)
+              uses: azure/login@v2
+              with:
+                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.12.2
+
+            - name: Terraform Init
+              working-directory: ${{ matrix.path }}
+              run: terraform init
+
+            - name: Terraform Validate
+              working-directory: ${{ matrix.path }}
+              run: terraform validate
+
+            - name: Terraform Plan
+              working-directory: ${{ matrix.path }}
+              run: terraform plan -no-color -input=false
+              continue-on-error: true
+
+    no-changes:
+        name: No CI-Enabled Modules Changed
+        needs: detect-changes
+        if: needs.detect-changes.outputs.has_changes == 'false'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Report
+              run: echo "No CI-enabled modules were affected by this PR"

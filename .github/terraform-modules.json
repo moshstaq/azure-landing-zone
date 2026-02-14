@@ -1,0 +1,58 @@
+{
+  "modules": [
+    {
+      "name": "platform-connectivity",
+      "path": "platform/connectivity",
+      "tier": 1,
+      "ci_enabled": false
+    },
+    {
+      "name": "platform-management",
+      "path": "platform/management",
+      "tier": 1,
+      "ci_enabled": false
+    },
+    {
+      "name": "platform-governance",
+      "path": "platform/governance",
+      "tier": 2,
+      "ci_enabled": false
+    },
+    {
+      "name": "platform-github-oidc",
+      "path": "platform/identity/github-oidc",
+      "tier": 2,
+      "ci_enabled": false
+    },
+    {
+      "name": "lz-app-dev-networking",
+      "path": "landing-zones/app-dev/networking",
+      "tier": 3,
+      "ci_enabled": true
+    },
+    {
+      "name": "lz-app-dev-keyvault",
+      "path": "landing-zones/app-dev/workloads/security/keyvault",
+      "tier": 4,
+      "ci_enabled": true
+    },
+    {
+      "name": "lz-app-dev-storage",
+      "path": "landing-zones/app-dev/workloads/storage",
+      "tier": 4,
+      "ci_enabled": true
+    },
+    {
+      "name": "lz-app-dev-vm",
+      "path": "landing-zones/app-dev/workloads/compute/vm",
+      "tier": 4,
+      "ci_enabled": true
+    },
+    {
+      "name": "lz-app-dev-aci",
+      "path": "landing-zones/app-dev/workloads/compute/aci",
+      "tier": 4,
+      "ci_enabled": true
+    }
+  ]
+}
