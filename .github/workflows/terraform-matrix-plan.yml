@@ -1,124 +1,250 @@
 name: Terraform Matrix Plan
 
 on:
-    pull_request:
-        branches: [main]
-        paths:
-            - "platform/**"
-            - "landing-zones/**"
-            - ".github/workflows/terraform-matrix-plan.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "platform/**"
+      - "landing-zones/**"
+      - ".github/workflows/terraform-matrix-plan.yml"
 
 permissions:
-    id-token: write
-    contents: read
-    pull-requests: write
+  id-token: write
+  contents: read
+  pull-requests: write
 
 env:
-    ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-    ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-    ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    ARM_USE_OIDC: true
-    ARM_USE_AZUREAD: true
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: true
+  ARM_USE_AZUREAD: true
 
 jobs:
-    detect-changes:
-        name: Detect Changed Modules
-        runs-on: ubuntu-latest
-        outputs:
-            matrix: ${{ steps.set-matrix.outputs.matrix }}
-            has_changes: ${{ steps.set-matrix.outputs.has_changes }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
+  detect-changes:
+    name: Detect Changed Modules
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_changes: ${{ steps.set-matrix.outputs.has_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            - name: Get changed files
-              id: changed-files
-              uses: tj-actions/changed-files@v44
-              with:
-                  files: |
-                      platform/**
-                      landing-zones/**
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            platform/**
+            landing-zones/**
 
-            - name: Determine affected modules
-              id: set-matrix
-              run: |
-                  # Load module configuration
-                  MODULES=$(cat .github/terraform-modules.json)
+      - name: Determine affected modules
+        id: set-matrix
+        run: |
+          # Load module configuration
+          MODULES=$(cat .github/terraform-modules.json)
 
-                  # Get changed files
-                  CHANGED="${{ steps.changed-files.outputs.all_changed_files }}"
-                  echo "Changed files: $CHANGED"
+          # Get changed files
+          CHANGED="${{ steps.changed-files.outputs.all_changed_files }}"
+          echo "Changed files: $CHANGED"
 
-                  # Find modules with changes that are CI-enabled
-                  AFFECTED_MODULES="[]"
+          # Find modules with changes that are CI-enabled
+          AFFECTED_MODULES="[]"
 
-                  for path in $(echo "$MODULES" | jq -r '.modules[] | select(.ci_enabled == true) | .path'); do
-                    for file in $CHANGED; do
-                      if [[ "$file" == "$path"* ]]; then
-                        MODULE=$(echo "$MODULES" | jq -c ".modules[] | select(.path == \"$path\")")
-                        AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c ". + [$MODULE]")
-                        break
-                      fi
-                    done
-                  done
+          for path in $(echo "$MODULES" | jq -r '.modules[] | select(.ci_enabled == true) | .path'); do
+            for file in $CHANGED; do
+              if [[ "$file" == "$path"* ]]; then
+                MODULE=$(echo "$MODULES" | jq -c ".modules[] | select(.path == \"$path\")")
+                AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c ". + [$MODULE]")
+                break
+              fi
+            done
+          done
 
-                  # Remove duplicates and sort by tier
-                  AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c 'unique | sort_by(.tier)')
+          # Remove duplicates and sort by tier
+          AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c 'unique | sort_by(.tier)')
 
-                  echo "Affected modules: $AFFECTED_MODULES"
+          echo "Affected modules: $AFFECTED_MODULES"
 
-                  if [ "$AFFECTED_MODULES" == "[]" ]; then
-                    echo "has_changes=false" >> $GITHUB_OUTPUT
-                    echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
-                  else
-                    echo "has_changes=true" >> $GITHUB_OUTPUT
-                    echo "matrix={\"include\":$AFFECTED_MODULES}" >> $GITHUB_OUTPUT
-                  fi
+          if [ "$AFFECTED_MODULES" == "[]" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "matrix={\"include\":$AFFECTED_MODULES}" >> $GITHUB_OUTPUT
+          fi
 
-    plan:
-        name: Plan - ${{ matrix.name }}
-        needs: detect-changes
-        if: needs.detect-changes.outputs.has_changes == 'true'
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  plan:
+    name: Plan - ${{ matrix.name }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Azure Login (OIDC)
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
-              with:
-                  terraform_version: 1.12.2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
 
-            - name: Terraform Init
-              working-directory: ${{ matrix.path }}
-              run: terraform init
+      - name: Terraform Init
+        working-directory: ${{ matrix.path }}
+        run: terraform init
 
-            - name: Terraform Validate
-              working-directory: ${{ matrix.path }}
-              run: terraform validate
+      - name: Terraform Validate
+        working-directory: ${{ matrix.path }}
+        run: terraform validate
 
-            - name: Terraform Plan
-              working-directory: ${{ matrix.path }}
-              run: terraform plan -no-color -input=false
-              continue-on-error: true
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ matrix.path }}
+        run: |
+          terraform plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
+          echo "exitcode=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
-    no-changes:
-        name: No CI-Enabled Modules Changed
-        needs: detect-changes
-        if: needs.detect-changes.outputs.has_changes == 'false'
-        runs-on: ubuntu-latest
-        steps:
-            - name: Report
-              run: echo "No CI-enabled modules were affected by this PR"
+      - name: Create plan summary
+        working-directory: ${{ matrix.path }}
+        run: |
+          # Create a summary file with module info and plan output
+          {
+            echo "MODULE_NAME=${{ matrix.name }}"
+            echo "MODULE_PATH=${{ matrix.path }}"
+            echo "PLAN_EXITCODE=${{ steps.plan.outputs.exitcode }}"
+            echo "---PLAN_OUTPUT_START---"
+            cat plan_output.txt
+            echo "---PLAN_OUTPUT_END---"
+          } > plan_summary.txt
+
+      - name: Upload plan summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-${{ matrix.name }}
+          path: ${{ matrix.path }}/plan_summary.txt
+          retention-days: 1
+
+  comment:
+    name: Post PR Comment
+    needs: [detect-changes, plan]
+    if: always() && needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all plan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: plans
+          pattern: plan-*
+
+      - name: Build comment body
+        id: build-comment
+        run: |
+          COMMENT="## 🏗️ Terraform Plan Results\n\n"
+
+          # Track overall status
+          HAS_FAILURES=false
+          HAS_CHANGES=false
+
+          # Process each plan summary
+          for dir in plans/plan-*; do
+            if [ -d "$dir" ]; then
+              SUMMARY_FILE="$dir/plan_summary.txt"
+              
+              # Parse the summary file
+              MODULE_NAME=$(grep "^MODULE_NAME=" "$SUMMARY_FILE" | cut -d'=' -f2)
+              MODULE_PATH=$(grep "^MODULE_PATH=" "$SUMMARY_FILE" | cut -d'=' -f2)
+              EXITCODE=$(grep "^PLAN_EXITCODE=" "$SUMMARY_FILE" | cut -d'=' -f2)
+              
+              # Extract plan output between markers
+              PLAN_OUTPUT=$(sed -n '/---PLAN_OUTPUT_START---/,/---PLAN_OUTPUT_END---/p' "$SUMMARY_FILE" | sed '1d;$d')
+              
+              # Determine status emoji
+              if [ "$EXITCODE" == "0" ]; then
+                STATUS="✅"
+              elif [ "$EXITCODE" == "2" ]; then
+                STATUS="⚠️"
+                HAS_CHANGES=true
+              else
+                STATUS="❌"
+                HAS_FAILURES=true
+              fi
+              
+              # Extract summary line (Plan: X to add, Y to change, Z to destroy)
+              PLAN_SUMMARY=$(echo "$PLAN_OUTPUT" | grep -E "Plan:|No changes" | tail -1)
+              if [ -z "$PLAN_SUMMARY" ]; then
+                PLAN_SUMMARY="See details below"
+              fi
+              
+              # Add module section
+              COMMENT+="### ${STATUS} ${MODULE_NAME}\n"
+              COMMENT+="**Path:** \`${MODULE_PATH}\`\n"
+              COMMENT+="**Summary:** ${PLAN_SUMMARY}\n\n"
+              COMMENT+="<details>\n<summary>Show Plan Output</summary>\n\n\`\`\`hcl\n${PLAN_OUTPUT}\n\`\`\`\n</details>\n\n---\n\n"
+            fi
+          done
+
+          # Add footer
+          COMMENT+="*Pushed by @${{ github.actor }} • Workflow: \`${{ github.workflow }}\`*"
+
+          # Save to file (handles multi-line better than output)
+          echo -e "$COMMENT" > comment.md
+
+      - name: Post or update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = fs.readFileSync('comment.md', 'utf8');
+
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c => 
+              c.user.type === 'Bot' && 
+              c.body.includes('🏗️ Terraform Plan Results')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+              console.log('Updated existing comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+              console.log('Created new comment');
+            }
+  no-changes:
+    name: No CI-Enabled Modules Changed
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: echo "No CI-enabled modules were affected by this PR"
