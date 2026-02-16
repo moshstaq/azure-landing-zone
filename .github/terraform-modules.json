@@ -53,6 +53,12 @@
       "path": "landing-zones/app-dev/workloads/compute/aci",
       "tier": 4,
       "ci_enabled": true
+    },
+    {
+      "name": "lz-app-dev-container-apps",
+      "path": "landing-zones/app-dev/workloads/compute/container-apps",
+      "tier": 4,
+      "ci_enabled": true
     }
   ]
 }

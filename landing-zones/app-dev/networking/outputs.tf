@@ -22,3 +22,8 @@ output "snet_containers_id" {
   description = "ID of the containers subnet"
   value       = azurerm_subnet.containers.id
 }
+
+output "location" {
+  description = "Location of the app-dev resources"
+  value       = azurerm_resource_group.app_dev.location
+}
