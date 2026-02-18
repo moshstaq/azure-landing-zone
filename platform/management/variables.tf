@@ -3,3 +3,9 @@ variable "location" {
   type        = string
   default     = "eastus2"
 }
+
+
+variable "alert_email" {
+  description = "Email address for platform alert notifications"
+  type        = string
+}
