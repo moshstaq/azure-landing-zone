@@ -100,4 +100,28 @@ resource "azurerm_virtual_network_peering" "hub_to_spoke" {
   use_remote_gateways          = false
 }
 
-# PR comment automation test
+# AKS subnet (larger for Azure CNI - 1 IP per pod)
+resource "azurerm_subnet" "aks" {
+  name                 = "snet-aks"
+  resource_group_name  = azurerm_resource_group.app_dev.name
+  virtual_network_name = azurerm_virtual_network.app_dev.name
+  address_prefixes     = ["10.1.4.0/22"]
+}
+
+# NSG for AKS subnet
+resource "azurerm_network_security_group" "aks" {
+  name                = "nsg-app-dev-aks"
+  location            = azurerm_resource_group.app_dev.location
+  resource_group_name = azurerm_resource_group.app_dev.name
+
+  tags = {
+    environment = "dev"
+    managed_by  = "terraform"
+  }
+}
+
+# Associate NSG with AKS subnet
+resource "azurerm_subnet_network_security_group_association" "aks" {
+  subnet_id                 = azurerm_subnet.aks.id
+  network_security_group_id = azurerm_network_security_group.aks.id
+}

@@ -27,3 +27,8 @@ output "location" {
   description = "Location of the app-dev resources"
   value       = azurerm_resource_group.app_dev.location
 }
+
+output "snet_aks_id" {
+  description = "ID of the AKS subnet"
+  value       = azurerm_subnet.aks.id
+}
