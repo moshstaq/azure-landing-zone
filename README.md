@@ -262,6 +262,8 @@ After step 2, subsequent deployments run automatically via GitHub Actions on PR 
 
 Weekly progress documented in [`docs/`](docs/) — covering decisions made, problems hit, and what each week taught. Built over 6 months targeting Cloud Engineer and Platform Engineer roles.
 
+Architecture decisions and diagrams documented in [`docs/architecture.md`](docs/architecture.md)
+
 ---
 
 ## License
