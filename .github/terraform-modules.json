@@ -59,6 +59,12 @@
       "path": "landing-zones/app-dev/workloads/compute/container-apps",
       "tier": 4,
       "ci_enabled": true
+    },
+    {
+      "name": "lz-app-dev-aks",
+      "path": "landing-zones/app-dev/workloads/compute/aks",
+      "tier": 4,
+      "ci_enabled": true
     }
   ]
 }
