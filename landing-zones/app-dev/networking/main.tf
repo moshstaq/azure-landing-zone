@@ -125,3 +125,18 @@ resource "azurerm_subnet_network_security_group_association" "aks" {
   subnet_id                 = azurerm_subnet.aks.id
   network_security_group_id = azurerm_network_security_group.aks.id
 }
+
+# NSG for aks snet <--> hubVnet inbound 
+resource "azurerm_network_security_rule" "allow_hub_inbound" {
+  name                        = "Allow-Hub-Inbound"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_address_prefix       = "10.0.0.0/16"
+  destination_address_prefix  = "*"
+  destination_port_range      = "*"
+  source_port_range           = "*"
+  resource_group_name         = azurerm_resource_group.app_dev.name
+  network_security_group_name = azurerm_network_security_group.aks.name
+}
