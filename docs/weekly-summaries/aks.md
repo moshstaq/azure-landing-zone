@@ -1,33 +1,8 @@
 Architecture decisions and diagrams → [`docs/architecture.md`](docs/architecture.md)
-**Session Focus:** Documentation, AKS rebuild, Kubernetes concepts
 
-## 1. Documentation — Completed
+**Session Focus:** AKS rebuild, Kubernetes concepts
 
-### README.md — Full rewrite
-
-- Opening paragraph leads with what was built and how, not definitions
-- State strategy section explains blast radius isolation explicitly
-- Governance table highlights DeployIfNotExists vs Deny distinction
-- OIDC section shows JWT token exchange flow
-- Cost table reframes ephemeral workloads as intentional cost-aware engineering
-- Deployment order section documents dependency graph
-
-### docs/architecture.md — New file
-
-Six Mermaid diagrams covering:
-
-- Management Group hierarchy with policy inheritance
-- Hub-spoke network topology with subnet addressing
-- Terraform state architecture showing cross-module output flow
-- OIDC sequence diagram showing JWT subject claim validation
-- CI/CD pipeline flowchart including drift detection
-- Observability architecture showing log sources → Log Analytics → alerts
-
-Design decisions section documents why hub-spoke, modular state, OIDC, and sequential apply were chosen.
-
----
-
-## 2. AKS Week 14 — Rebuilt
+## 1. AKS — Rebuilt
 
 Cluster reprovisioned with corrections from original build:
 
@@ -43,7 +18,7 @@ Validated:
 
 ---
 
-## 3. AKS Week 15 — ConfigMaps, Secrets, Ingress
+## 2. AKS — ConfigMaps, Secrets, Ingress
 
 ### Manifests created in `aks/manifests/`
 
@@ -88,7 +63,7 @@ Decided against adding `Allow-Internet` NSG rule on `snet-aks`. Internet traffic
 
 ---
 
-## 4. Networking NSG — Corrected
+## 3. Networking NSG — Corrected
 
 Added explicit inbound rule to `nsg-app-dev-aks`:
 
@@ -100,7 +75,7 @@ Added explicit inbound rule to `nsg-app-dev-aks`:
 
 ---
 
-## 5. Pending Items
+## 4. Pending Items
 
 | Item                                                  | When |
 | ----------------------------------------------------- | ---- |
@@ -112,7 +87,7 @@ Added explicit inbound rule to `nsg-app-dev-aks`:
 
 ---
 
-## 6. Concepts Covered
+## 5. Concepts Covered
 
 - **ConfigMap** — externalise non-sensitive config from container image, injected as env vars
 - **Secret** — sensitive values, base64 encoded, injected individually via `secretKeyRef`
