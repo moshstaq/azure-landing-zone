@@ -17,9 +17,13 @@ resource "azurerm_kubernetes_cluster" "this" {
     vnet_subnet_id  = data.terraform_remote_state.networking.outputs.snet_aks_id
     os_disk_size_gb = 30
     max_pods        = 30
+    os_sku          = "AzureLinux"
 
 
-    os_sku = "AzureLinux"
+    node_labels = {
+      "nodepool-type" = "system"
+    }
+
   }
 
   # Azure CNI for VNet integration
@@ -30,6 +34,8 @@ resource "azurerm_kubernetes_cluster" "this" {
     dns_service_ip    = "10.2.0.10"
     load_balancer_sku = "standard"
   }
+
+
 
 
   oms_agent {
@@ -54,7 +60,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "workload" {
   os_sku                = "AzureLinux"
 
   # Taint system pool so apps schedule on workload pool
-  node_taints = []
+
+  node_labels = {
+    "nodepool-type" = "workload"
+  }
+
+
 
   tags = {
     Environment = "dev"
