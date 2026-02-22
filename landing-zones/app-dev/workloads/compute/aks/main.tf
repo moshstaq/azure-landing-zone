@@ -4,6 +4,9 @@ resource "azurerm_kubernetes_cluster" "this" {
   resource_group_name = data.terraform_remote_state.networking.outputs.resource_group_name
   dns_prefix          = "aks-app-dev"
 
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
+
 
   identity {
     type = "SystemAssigned"
@@ -23,6 +26,12 @@ resource "azurerm_kubernetes_cluster" "this" {
     node_labels = {
       "nodepool-type" = "system"
     }
+
+    upgrade_settings {
+      max_surge = "10%"
+    }
+
+
 
   }
 
@@ -64,6 +73,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "workload" {
   node_labels = {
     "nodepool-type" = "workload"
   }
+
+  upgrade_settings {
+    max_surge = "10%"
+  }
+
+
 
 
 

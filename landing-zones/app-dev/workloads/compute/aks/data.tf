@@ -23,3 +23,5 @@ data "terraform_remote_state" "connectivity" {
     key                  = "platform-connectivity.tfstate"
   }
 }
+
+data "azurerm_client_config" "current" {}
