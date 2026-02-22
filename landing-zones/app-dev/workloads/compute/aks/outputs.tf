@@ -22,3 +22,8 @@ output "node_resource_group" {
   description = "Resource group containing AKS nodes"
   value       = azurerm_kubernetes_cluster.this.node_resource_group
 }
+
+output "appgw_public_ip" {
+  description = "Application Gateway public IP — internet entry point"
+  value       = azurerm_public_ip.appgw.ip_address
+}

@@ -17,3 +17,4 @@ output "snet_shared_services_id" {
   description = "ID of the shared services subnet"
   value       = azurerm_subnet.shared_services.id
 }
+

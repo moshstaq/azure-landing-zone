@@ -4,8 +4,9 @@ resource "azurerm_resource_group" "connectivity" {
   location = var.location
 
   tags = {
-    purpose    = "platform-connectivity"
-    managed_by = "terraform"
+    Environment = "platform"
+    purpose     = "platform-connectivity"
+    managed_by  = "terraform"
   }
 }
 
