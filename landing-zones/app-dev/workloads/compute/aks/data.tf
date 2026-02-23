@@ -23,5 +23,14 @@ data "terraform_remote_state" "connectivity" {
     key                  = "platform-connectivity.tfstate"
   }
 }
+data "azurerm_subnet" "appgw" {
+  name                 = "snet-appgw"
+  virtual_network_name = "vnet-hub"
+  resource_group_name  = "rg-platform-connectivity"
+}
+
+data "azurerm_resource_group" "connectivity" {
+  name = "rg-platform-connectivity"
+}
 
 data "azurerm_client_config" "current" {}

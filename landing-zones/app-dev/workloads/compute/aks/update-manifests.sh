@@ -25,3 +25,16 @@ sed -i '' "s|keyvaultName:.*|keyvaultName: \"$KV_NAME\"|" \
 echo "Done. Apply manifests with:"
 echo "  kubectl apply -f manifests/serviceaccount.yaml"
 echo "  kubectl apply -f manifests/secretprovider.yaml"
+
+AGIC_CLIENT_ID=$(terraform output -raw agic_client_id)
+APPGW_ID=$(terraform output -raw appgw_id 2>/dev/null || echo "")
+
+echo ""
+echo "AGIC Helm install command:"
+echo "helm install ingress-azure \\"
+echo "  oci://mcr.microsoft.com/azure-application-gateway/charts/ingress-azure \\"
+echo "  --namespace kube-system \\"
+echo "  --set appgw.applicationGatewayID=$APPGW_ID \\"
+echo "  --set armAuth.type=workloadIdentity \\"
+echo "  --set armAuth.identityClientID=$AGIC_CLIENT_ID \\"
+echo "  --set rbac.enabled=true"

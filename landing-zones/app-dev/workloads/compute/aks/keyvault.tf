@@ -25,16 +25,6 @@ resource "azurerm_key_vault" "workload" {
   }
 }
 
-# Real secret — replaces the dummy Kubernetes Secret from Week 15
-resource "azurerm_key_vault_secret" "db_password" {
-  name         = "db-password"
-  value        = "real-secret-managed-by-keyvault"
-  key_vault_id = azurerm_key_vault.workload.id
-
-  depends_on = [
-    azurerm_role_assignment.terraform_kv_admin
-  ]
-}
 
 # ─────────────────────────────────────────────────────
 # Managed Identity — one per workload, least privilege
