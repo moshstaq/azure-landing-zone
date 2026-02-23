@@ -4,9 +4,9 @@ metadata:
   name: nginx-demo
   namespace: default
 spec:
-  type: ClusterIP             
+  type: ClusterIP
   selector:
     app: nginx-demo
   ports:
-  - port: 80                   
-    targetPort: 80             
+  - port: 80
+    targetPort: 80
