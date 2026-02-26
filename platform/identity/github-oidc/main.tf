@@ -12,6 +12,12 @@ data "azurerm_resource_group" "tfstate" {
   name = "rg-tfstate"
 }
 
+data "azurerm_resource_group" "connectivity" {
+  name = "rg-platform-connectivity"
+}
+
+
+
 # -----------------------------------------------------
 # Azure AD Application Registration
 # -----------------------------------------------------
@@ -61,4 +67,20 @@ resource "azuread_application_federated_identity_credential" "pull_request" {
   audiences = ["api://AzureADTokenExchange"]
 
   description = "Trust GitHub Actions from pull requests"
+}
+
+# Reader on connectivity — allows pipeline to read hub resources
+# without being able to modify VNet, NSGs, peering, or other platform infra
+resource "azurerm_role_assignment" "connectivity_reader" {
+  scope                = data.azurerm_resource_group.connectivity.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
+
+# Contributor scoped to connectivity RG
+# Required to manage ephemeral App Gateway and Public IP during AKS sessions
+resource "azurerm_role_assignment" "connectivity_contributor" {
+  scope                = data.azurerm_resource_group.connectivity.id
+  role_definition_name = "Contributor"
+  principal_id         = azuread_service_principal.github_actions.object_id
 }
