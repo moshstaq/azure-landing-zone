@@ -38,10 +38,6 @@ output "key_vault_name" {
   value       = azurerm_key_vault.workload.name
 }
 
-output "db_password_secret_uri" {
-  description = "Key Vault secret URI for db-password"
-  value       = azurerm_key_vault_secret.db_password.id
-}
 
 output "appgw_id" {
   description = "Application Gateway resource ID"
