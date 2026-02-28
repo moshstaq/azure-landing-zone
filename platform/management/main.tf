@@ -17,8 +17,13 @@ resource "azurerm_log_analytics_workspace" "platform" {
   sku                 = "PerGB2018"
   retention_in_days   = 30
 
+  # Daily cap — protects against unexpected ingestion cost spikes
+  # -1 means unlimited, 1GB cap is generous for a lab environment
+  daily_quota_gb = 1
+
   tags = {
     purpose    = "centralized-logging"
     managed_by = "terraform"
   }
 }
+

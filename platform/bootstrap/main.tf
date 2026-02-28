@@ -33,11 +33,20 @@ resource "azurerm_storage_account" "tfstate" {
     delete_retention_policy {
       days = 7
     }
+
+    container_delete_retention_policy {
+      days = 7
+    }
+
+    versioning_enabled = true
   }
 
+
+
   tags = {
-    purpose    = "terraform-state"
-    managed_by = "terraform-bootstrap"
+    environment = "platform"
+    purpose     = "terraform-state"
+    managed_by  = "terraform-bootstrap"
   }
 }
 
@@ -46,4 +55,11 @@ resource "azurerm_storage_container" "tfstate" {
   name                  = "tfstate"
   storage_account_name  = azurerm_storage_account.tfstate.name
   container_access_type = "private"
+}
+
+resource "azurerm_management_lock" "tfstate" {
+  name       = "lock-tfstate-rg"
+  scope      = azurerm_resource_group.tfstate.id
+  lock_level = "CanNotDelete"
+  notes      = "Protects Terraform state storage from accidental deletion"
 }
