@@ -43,3 +43,8 @@ output "appgw_id" {
   description = "Application Gateway resource ID"
   value       = azurerm_application_gateway.hub.id
 }
+
+output "kubelet_identity_object_id" {
+  description = "Object ID of the AKS kubelet managed identity — used for AcrPull role assignment"
+  value       = azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id
+}
