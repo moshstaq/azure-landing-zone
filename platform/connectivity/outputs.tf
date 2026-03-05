@@ -18,3 +18,7 @@ output "snet_shared_services_id" {
   value       = azurerm_subnet.shared_services.id
 }
 
+output "snet_appgw_id" {
+  description = "Application Gateway subnet ID"
+  value       = azurerm_subnet.appgw.id
+}
