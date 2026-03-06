@@ -4,18 +4,12 @@
 # AKS since both are ephemeral — deployed and destroyed
 # together to stay within budget constraints.
 # In production this would be permanent in platform/connectivity.
+#
+# snet-appgw is permanent and lives in platform/connectivity.
+# This module reads it via data source in data.tf.
 # ─────────────────────────────────────────────────────
-
 locals {
   location = "eastus2"
-}
-
-# Dedicated subnet for App Gateway in hub VNet
-resource "azurerm_subnet" "appgw" {
-  name                 = "snet-appgw"
-  resource_group_name  = "rg-platform-connectivity"
-  virtual_network_name = "vnet-hub"
-  address_prefixes     = ["10.0.2.0/24"]
 }
 
 # Public IP — internet entry point
@@ -25,7 +19,6 @@ resource "azurerm_public_ip" "appgw" {
   resource_group_name = "rg-platform-connectivity"
   allocation_method   = "Static"
   sku                 = "Standard"
-
   tags = {
     environment = "dev"
     managed_by  = "terraform"
@@ -46,7 +39,7 @@ resource "azurerm_application_gateway" "hub" {
 
   gateway_ip_configuration {
     name      = "appgw-ip-config"
-    subnet_id = azurerm_subnet.appgw.id
+    subnet_id = data.azurerm_subnet.appgw.id
   }
 
   frontend_ip_configuration {
@@ -59,7 +52,6 @@ resource "azurerm_application_gateway" "hub" {
     port = 80
   }
 
-  # Backend pool — updated after ingress controller IP is known
   backend_address_pool {
     name         = "aks-ingress-pool"
     ip_addresses = ["10.1.4.38"]
@@ -78,7 +70,7 @@ resource "azurerm_application_gateway" "hub" {
     name                = "aks-health-probe"
     protocol            = "Http"
     path                = "/"
-    host                = "10.1.4.38" # placeholder
+    host                = "10.1.4.38"
     interval            = 30
     timeout             = 30
     unhealthy_threshold = 3
@@ -111,4 +103,3 @@ resource "azurerm_application_gateway" "hub" {
     policy_name = "AppGwSslPolicy20220101"
   }
 }
-
