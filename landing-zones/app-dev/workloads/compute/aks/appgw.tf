@@ -31,6 +31,16 @@ resource "azurerm_application_gateway" "hub" {
   location            = local.location
   resource_group_name = "rg-platform-connectivity"
 
+  lifecycle {
+    ignore_changes = [
+      backend_address_pool,
+      backend_http_settings,
+      http_listener,
+      request_routing_rule,
+      probe
+    ]
+  }
+
   sku {
     name     = "Standard_v2"
     tier     = "Standard_v2"
