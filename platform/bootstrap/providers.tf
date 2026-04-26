@@ -1,23 +1,18 @@
 terraform {
-  required_version = ">= 1.12.0"
+  required_version = ">= 1.5.0"
 
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.80"
+      version = "~> 3.110.0"
     }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.5"
     }
   }
-
-  # NOTE: No backend block - bootstrap uses local state
 }
 
 provider "azurerm" {
   features {}
-
-
-
 }
