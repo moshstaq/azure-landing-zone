@@ -1,11 +1,10 @@
-name: Terraform Matrix Apply
+name: Platform Apply
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
       - "platform/**"
-      - "landing-zones/**"
 
 permissions:
   id-token: write
@@ -58,8 +57,6 @@ jobs:
 
           AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c 'unique | sort_by(.tier)')
 
-          echo "Affected modules: $AFFECTED_MODULES"
-
           if [ "$AFFECTED_MODULES" == "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
@@ -92,7 +89,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.5.7
 
       - name: Terraform Init
         working-directory: ${{ matrix.path }}
@@ -109,4 +106,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Report
-        run: echo "No CI-enabled modules were affected by this push"
+        run: echo "No CI-enabled platform modules were affected by this push"

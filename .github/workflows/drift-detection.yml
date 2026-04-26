@@ -1,108 +1,111 @@
-name: Drift Detection
+name: Platform Drift Detection
 
 on:
-    schedule:
-        - cron: "0 6 * * 1" # Weekly on Monday at 6 AM UTC
-    workflow_dispatch: # Manual trigger
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 permissions:
-    id-token: write
-    contents: read
-    issues: write
+  id-token: write
+  contents: read
+  issues: write
 
 env:
-    ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-    ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-    ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    ARM_USE_OIDC: true
-    ARM_USE_AZUREAD: true
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: true
+  ARM_USE_AZUREAD: true
 
 jobs:
-    drift-check:
-        name: Drift Check - ${{ matrix.name }}
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - name: lz-app-dev-networking
-                      path: landing-zones/app-dev/networking
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  drift-check:
+    name: Drift Check - ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: platform-connectivity
+            path: platform/connectivity
+          - name: platform-management
+            path: platform/management
+          - name: platform-governance
+            path: platform/governance
+          - name: platform-github-oidc
+            path: platform/identity/github-oidc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Azure Login
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
-              with:
-                  terraform_version: 1.12.2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
 
-            - name: Terraform Init
-              working-directory: ${{ matrix.path }}
-              run: terraform init
+      - name: Terraform Init
+        working-directory: ${{ matrix.path }}
+        run: terraform init
 
-            - name: Terraform Plan (Drift Check)
-              id: plan
-              working-directory: ${{ matrix.path }}
-              run: |
-                  set +e
-                  terraform plan -detailed-exitcode -no-color -out=tfplan 2>&1 | tee plan_output.txt
-                  EXIT_CODE=$?
-                  echo "exitcode=$EXIT_CODE" >> $GITHUB_OUTPUT
-                  exit 0
+      - name: Terraform Plan (Drift Check)
+        id: plan
+        working-directory: ${{ matrix.path }}
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color -out=tfplan 2>&1 | tee plan_output.txt
+          EXIT_CODE=$?
+          echo "exitcode=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0
 
-            - name: Report No Drift
-              if: steps.plan.outputs.exitcode == '0'
-              run: echo "✅ No drift detected in ${{ matrix.name }}"
+      - name: Report No Drift
+        if: steps.plan.outputs.exitcode == '0'
+        run: echo "✅ No drift detected in ${{ matrix.name }}"
 
-            - name: Create Issue if Drift Detected
-              if: steps.plan.outputs.exitcode == '2'
-              uses: actions/github-script@v7
-              with:
-                  script: |
-                      const fs = require('fs');
-                      const planOutput = fs.readFileSync('${{ matrix.path }}/plan_output.txt', 'utf8');
+      - name: Create Issue if Drift Detected
+        if: steps.plan.outputs.exitcode == '2'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('${{ matrix.path }}/plan_output.txt', 'utf8');
 
-                      // Check for existing open drift issue
-                      const existingIssues = await github.rest.issues.listForRepo({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        state: 'open',
-                        labels: 'drift'
-                      });
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'drift'
+            });
 
-                      const existingIssue = existingIssues.data.find(
-                        issue => issue.title.includes('${{ matrix.name }}')
-                      );
+            const existingIssue = existingIssues.data.find(
+              issue => issue.title.includes('${{ matrix.name }}')
+            );
 
-                      if (existingIssue) {
-                        // Update existing issue
-                        await github.rest.issues.createComment({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          issue_number: existingIssue.number,
-                          body: `## Drift Still Present\n\n**Detected:** ${new Date().toISOString()}\n\n\`\`\`\n${planOutput.slice(0, 60000)}\n\`\`\``
-                        });
-                      } else {
-                        // Create new issue
-                        await github.rest.issues.create({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          title: '⚠️ Drift Detected: ${{ matrix.name }}',
-                          body: `## Infrastructure Drift Detected\n\n**Module:** \`${{ matrix.path }}\`\n**Detected:** ${new Date().toISOString()}\n\n### Terraform Plan Output\n\`\`\`\n${planOutput.slice(0, 60000)}\n\`\`\`\n\n### Resolution Options\n1. **Accept drift:** Update Terraform code to match current state\n2. **Correct drift:** Run \`terraform apply\` to restore desired state\n3. **Investigate:** Determine who/what made the change`,
-                          labels: ['drift', 'infrastructure']
-                        });
-                      }
+            if (existingIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## Drift Still Present\n\n**Detected:** ${new Date().toISOString()}\n\n\`\`\`\n${planOutput.slice(0, 60000)}\n\`\`\``
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '⚠️ Drift Detected: ${{ matrix.name }}',
+                body: `## Platform Infrastructure Drift Detected\n\n**Module:** \`${{ matrix.path }}\`\n**Detected:** ${new Date().toISOString()}\n\n### Terraform Plan Output\n\`\`\`\n${planOutput.slice(0, 60000)}\n\`\`\`\n\n### Resolution\n1. **Accept drift:** Update Terraform code to match current state\n2. **Correct drift:** Run \`terraform apply\` to restore desired state\n3. **Investigate:** Determine what made the change and why`,
+                labels: ['drift', 'infrastructure', 'platform']
+              });
+            }
 
-            - name: Fail if Error
-              if: steps.plan.outputs.exitcode == '1'
-              run: |
-                  echo "❌ Terraform plan failed for ${{ matrix.name }}"
-                  cat ${{ matrix.path }}/plan_output.txt
-                  exit 1
+      - name: Fail if Error
+        if: steps.plan.outputs.exitcode == '1'
+        run: |
+          echo "❌ Terraform plan failed for ${{ matrix.name }}"
+          cat ${{ matrix.path }}/plan_output.txt
+          exit 1
