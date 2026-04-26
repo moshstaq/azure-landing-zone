@@ -22,3 +22,4 @@ output "snet_appgw_id" {
   description = "Application Gateway subnet ID"
   value       = azurerm_subnet.appgw.id
 }
+

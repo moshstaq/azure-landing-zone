@@ -19,17 +19,30 @@ data "terraform_remote_state" "app_dev_networking" {
   }
 }
 
-locals {
-  spoke_vnet_ids = {
-    app_dev = data.terraform_remote_state.app_dev_networking.outputs.vnet_app_dev_id
+
+data "terraform_remote_state" "data_access_networking" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = "rg-tfstate"
+    storage_account_name = "sttfstate7tcl"
+    container_name       = "tfstate"
+    key                  = "spoke-data-access-networking.tfstate"
   }
 }
+
+locals {
+  spoke_vnet_ids = {
+    app_dev     = data.terraform_remote_state.app_dev_networking.outputs.vnet_app_dev_id
+    data_access = data.terraform_remote_state.data_access_networking.outputs.vnet_id
+  }
+}
+
 
 # ─────────────────────────────────────────────────────
 # Private DNS Zones
 # ─────────────────────────────────────────────────────
-
-# Blob Storage
+#
+# # Blob Storage
 resource "azurerm_private_dns_zone" "blob" {
   name                = "privatelink.blob.core.windows.net"
   resource_group_name = azurerm_resource_group.connectivity.name
@@ -40,8 +53,9 @@ resource "azurerm_private_dns_zone" "blob" {
     purpose     = "private-dns"
   }
 }
-
-# Key Vault
+/*
+#
+#Key Vault
 resource "azurerm_private_dns_zone" "keyvault" {
   name                = "privatelink.vaultcore.azure.net"
   resource_group_name = azurerm_resource_group.connectivity.name
@@ -53,7 +67,7 @@ resource "azurerm_private_dns_zone" "keyvault" {
   }
 }
 
-# Azure Container Registry
+# # Azure Container Registry
 resource "azurerm_private_dns_zone" "acr" {
   name                = "privatelink.azurecr.io"
   resource_group_name = azurerm_resource_group.connectivity.name
@@ -65,7 +79,7 @@ resource "azurerm_private_dns_zone" "acr" {
   }
 }
 
-# AKS API server
+# # AKS API server
 resource "azurerm_private_dns_zone" "aks" {
   name                = "privatelink.eastus2.azmk8s.io"
   resource_group_name = azurerm_resource_group.connectivity.name
@@ -76,12 +90,12 @@ resource "azurerm_private_dns_zone" "aks" {
     purpose     = "private-dns"
   }
 }
-
+*/
 # ─────────────────────────────────────────────────────
 # VNet Links — hub VNet
 # Hub must be linked first so hub resources can resolve
 # ─────────────────────────────────────────────────────
-
+#
 resource "azurerm_private_dns_zone_virtual_network_link" "blob_hub" {
   name                  = "link-vnet-hub-blob"
   resource_group_name   = azurerm_resource_group.connectivity.name
@@ -94,6 +108,8 @@ resource "azurerm_private_dns_zone_virtual_network_link" "blob_hub" {
     managed_by  = "terraform"
   }
 }
+
+/*
 
 resource "azurerm_private_dns_zone_virtual_network_link" "keyvault_hub" {
   name                  = "link-vnet-hub-keyvault"
@@ -117,8 +133,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "acr_hub" {
 
   tags = {
     environment = "platform"
-    managed_by  = "terraform"
-  }
+  managed_by = "terraform" }
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "aks_hub" {
@@ -133,13 +148,13 @@ resource "azurerm_private_dns_zone_virtual_network_link" "aks_hub" {
     managed_by  = "terraform"
   }
 }
-
+*/
 # ─────────────────────────────────────────────────────
 # VNet Links — spoke VNets
 # Each spoke linked to all hub DNS zones
 # New spokes: add to spoke_vnet_ids local and re-apply
 # ─────────────────────────────────────────────────────
-
+#
 resource "azurerm_private_dns_zone_virtual_network_link" "blob_spokes" {
   for_each = local.spoke_vnet_ids
 
@@ -155,6 +170,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "blob_spokes" {
   }
 }
 
+/*
 resource "azurerm_private_dns_zone_virtual_network_link" "keyvault_spokes" {
   for_each = local.spoke_vnet_ids
 
@@ -199,16 +215,23 @@ resource "azurerm_private_dns_zone_virtual_network_link" "aks_spokes" {
     managed_by  = "terraform"
   }
 }
-
+*/
 # ─────────────────────────────────────────────────────
 # Outputs — consumed by spoke modules when registering
 # DNS A records for their private endpoints
 # ─────────────────────────────────────────────────────
 
+
 output "private_dns_zone_blob_id" {
   description = "Private DNS zone ID for blob storage"
   value       = azurerm_private_dns_zone.blob.id
 }
+
+output "private_dns_zone_blob_name" {
+  description = "Private DNS zone name for blob storage"
+  value       = azurerm_private_dns_zone.blob.name
+}
+/*
 
 output "private_dns_zone_keyvault_id" {
   description = "Private DNS zone ID for Key Vault"
@@ -225,12 +248,9 @@ output "private_dns_zone_aks_id" {
   value       = azurerm_private_dns_zone.aks.id
 }
 
-output "private_dns_zone_blob_name" {
-  description = "Private DNS zone name for blob storage"
-  value       = azurerm_private_dns_zone.blob.name
-}
-
 output "private_dns_zone_keyvault_name" {
   description = "Private DNS zone name for Key Vault"
   value       = azurerm_private_dns_zone.keyvault.name
 }
+*/
+
