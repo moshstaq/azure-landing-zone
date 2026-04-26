@@ -25,46 +25,10 @@
       "ci_enabled": false
     },
     {
-      "name": "lz-app-dev-networking",
-      "path": "landing-zones/app-dev/networking",
-      "tier": 3,
-      "ci_enabled": true
-    },
-    {
-      "name": "lz-app-dev-keyvault",
-      "path": "landing-zones/app-dev/workloads/security/keyvault",
-      "tier": 4,
-      "ci_enabled": true
-    },
-    {
-      "name": "lz-app-dev-storage",
-      "path": "landing-zones/app-dev/workloads/storage",
-      "tier": 4,
-      "ci_enabled": true
-    },
-    {
-      "name": "lz-app-dev-vm",
-      "path": "landing-zones/app-dev/workloads/compute/vm",
-      "tier": 4,
-      "ci_enabled": true
-    },
-    {
-      "name": "lz-app-dev-aci",
-      "path": "landing-zones/app-dev/workloads/compute/aci",
-      "tier": 4,
-      "ci_enabled": true
-    },
-    {
-      "name": "lz-app-dev-container-apps",
-      "path": "landing-zones/app-dev/workloads/compute/container-apps",
-      "tier": 4,
-      "ci_enabled": true
-    },
-    {
-      "name": "lz-app-dev-aks",
-      "path": "landing-zones/app-dev/workloads/compute/aks",
-      "tier": 4,
-      "ci_enabled": true
+      "name": "platform-nva",
+      "path": "platform/nva",
+      "tier": 2,
+      "ci_enabled": false
     }
   ]
 }

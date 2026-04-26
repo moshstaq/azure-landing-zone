@@ -1,11 +1,10 @@
-name: Terraform Matrix Plan
+name: Platform Plan
 
 on:
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths:
       - "platform/**"
-      - "landing-zones/**"
       - ".github/workflows/terraform-matrix-plan.yml"
 
 permissions:
@@ -39,19 +38,14 @@ jobs:
         with:
           files: |
             platform/**
-            landing-zones/**
 
       - name: Determine affected modules
         id: set-matrix
         run: |
-          # Load module configuration
           MODULES=$(cat .github/terraform-modules.json)
-
-          # Get changed files
           CHANGED="${{ steps.changed-files.outputs.all_changed_files }}"
           echo "Changed files: $CHANGED"
 
-          # Find modules with changes that are CI-enabled
           AFFECTED_MODULES="[]"
 
           for path in $(echo "$MODULES" | jq -r '.modules[] | select(.ci_enabled == true) | .path'); do
@@ -64,9 +58,7 @@ jobs:
             done
           done
 
-          # Remove duplicates and sort by tier
           AFFECTED_MODULES=$(echo "$AFFECTED_MODULES" | jq -c 'unique | sort_by(.tier)')
-
           echo "Affected modules: $AFFECTED_MODULES"
 
           if [ "$AFFECTED_MODULES" == "[]" ]; then
@@ -99,7 +91,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: 1.5.7
 
       - name: Terraform Init
         working-directory: ${{ matrix.path }}
@@ -120,7 +112,6 @@ jobs:
       - name: Create plan summary
         working-directory: ${{ matrix.path }}
         run: |
-          # Create a summary file with module info and plan output
           {
             echo "MODULE_NAME=${{ matrix.name }}"
             echo "MODULE_PATH=${{ matrix.path }}"
@@ -139,7 +130,7 @@ jobs:
 
   comment:
     name: Post PR Comment
-    needs: [detect-changes, plan]
+    needs: [ detect-changes, plan ]
     if: always() && needs.detect-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -152,43 +143,27 @@ jobs:
       - name: Build comment body
         id: build-comment
         run: |
-          COMMENT="## 🏗️ Terraform Plan Results\n\n"
+          COMMENT="## 🏗️ Platform Terraform Plan Results\n\n"
 
-          # Track overall status
-          HAS_FAILURES=false
-          HAS_CHANGES=false
-
-          # Process each plan summary
           for dir in plans/plan-*; do
             if [ -d "$dir" ]; then
               SUMMARY_FILE="$dir/plan_summary.txt"
-              
-              # Parse the summary file
               MODULE_NAME=$(grep "^MODULE_NAME=" "$SUMMARY_FILE" | cut -d'=' -f2)
               MODULE_PATH=$(grep "^MODULE_PATH=" "$SUMMARY_FILE" | cut -d'=' -f2)
               EXITCODE=$(grep "^PLAN_EXITCODE=" "$SUMMARY_FILE" | cut -d'=' -f2)
-              
-              # Extract plan output between markers
               PLAN_OUTPUT=$(sed -n '/---PLAN_OUTPUT_START---/,/---PLAN_OUTPUT_END---/p' "$SUMMARY_FILE" | sed '1d;$d')
-              
-              # Determine status emoji
+
               if [ "$EXITCODE" == "0" ]; then
                 STATUS="✅"
               elif [ "$EXITCODE" == "2" ]; then
                 STATUS="⚠️"
-                HAS_CHANGES=true
               else
                 STATUS="❌"
-                HAS_FAILURES=true
               fi
-              
-              # Extract summary line (Plan: X to add, Y to change, Z to destroy)
+
               PLAN_SUMMARY=$(echo "$PLAN_OUTPUT" | grep -E "Plan:|No changes" | tail -1)
-              if [ -z "$PLAN_SUMMARY" ]; then
-                PLAN_SUMMARY="See details below"
-              fi
-              
-              # Add module section
+              [ -z "$PLAN_SUMMARY" ] && PLAN_SUMMARY="See details below"
+
               COMMENT+="### ${STATUS} ${MODULE_NAME}\n"
               COMMENT+="**Path:** \`${MODULE_PATH}\`\n"
               COMMENT+="**Summary:** ${PLAN_SUMMARY}\n\n"
@@ -196,10 +171,7 @@ jobs:
             fi
           done
 
-          # Add footer
           COMMENT+="*Pushed by @${{ github.actor }} • Workflow: \`${{ github.workflow }}\`*"
-
-          # Save to file (handles multi-line better than output)
           echo -e "$COMMENT" > comment.md
 
       - name: Post or update PR comment
@@ -209,37 +181,33 @@ jobs:
             const fs = require('fs');
             const comment = fs.readFileSync('comment.md', 'utf8');
 
-            // Find existing bot comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
 
-            const botComment = comments.find(c => 
-              c.user.type === 'Bot' && 
-              c.body.includes('🏗️ Terraform Plan Results')
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('🏗️ Platform Terraform Plan Results')
             );
 
             if (botComment) {
-              // Update existing comment
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: botComment.id,
                 body: comment
               });
-              console.log('Updated existing comment');
             } else {
-              // Create new comment
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
                 body: comment
               });
-              console.log('Created new comment');
             }
+
   no-changes:
     name: No CI-Enabled Modules Changed
     needs: detect-changes
@@ -247,4 +215,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Report
-        run: echo "No CI-enabled modules were affected by this PR"
+        run: echo "No CI-enabled platform modules were affected by this PR"
