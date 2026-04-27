@@ -1,6 +1,6 @@
-# Azure Landing Zone
+# Azure Landing Zone v2
 
-Enterprise-grade Azure infrastructure built with Terraform, implementing Cloud Adoption Framework (CAF) landing zone patterns. Built as a hands-on learning project to demonstrate platform engineering skills across governance, networking, identity, observability, and CI/CD automation.
+Enterprise-grade Azure infrastructure built with Terraform, implementing Cloud Adoption Framework (CAF) landing zone patterns. Built as a hands-on learning project to demonstrate platform engineering skills across governance, networking, identity, observability, and CI/CD automation. This repository owns the platform foundation
 
 [![Terraform](https://img.shields.io/badge/Terraform-1.5+-623CE4?logo=terraform)](https://terraform.io)
 [![Azure](https://img.shields.io/badge/Azure-Landing%20Zone-0078D4?logo=microsoft-azure)](https://azure.microsoft.com)
@@ -11,9 +11,12 @@ Enterprise-grade Azure infrastructure built with Terraform, implementing Cloud A
 
 ## What This Is
 
-A production-pattern Azure Landing Zone built from scratch — not a template, not a wizard. Every resource is defined in Terraform, every deployment runs through GitHub Actions, and every design decision mirrors what platform teams do at enterprise scale.
+A production-pattern Azure Landing Zone built from scratch — not a template. Every resource is defined in Terraform, every deployment runs through GitHub Actions, and every design decision mirrors what platform teams do at enterprise scale.
 
-This covers the full platform stack: management group hierarchy, hub-spoke networking with Application Gateway ingress, Azure Policy governance, centralised observability, secretless CI/CD via OIDC, AKS with workload identity, Private Endpoints with centralised hub DNS, disaster recovery, and cost management.
+This covers the full platform stack: management group hierarchy, hub-spoke networking, Azure Policy governance, centralised observability, secretless CI/CD via OIDC,and cost management.
+
+What does not live here: application workloads, container deployments, AKS clusters, storage accounts, or any compute that serves an application. Those live in workload repositories that consume this platform's outputs.
+The companion workload repository is azure-app-dev.
 
 ---
 
@@ -32,37 +35,40 @@ Tenant Root Group
 
 ### Hub-Spoke Network Topology
 
-```
-Hub VNet (10.0.0.0/16)                    Spoke VNet (10.1.0.0/16)
-├── snet-shared-services (10.0.1.0/24)    ├── snet-app (10.1.1.0/24)
-├── snet-appgw (10.0.2.0/24)             ├── snet-data (10.1.2.0/24)  ← Private Endpoints
-│                                         ├── snet-containers (10.1.3.0/24)
-│                                         └── snet-aks (10.1.4.0/22)
-└──────────────── VNet Peering ───────────┘
-```
+                        Internet
+                           │
+              ┌────────────▼────────────┐
+              │  vnet-hub (10.0.0.0/16) │
+              │  rg-platform-connectivity│
+              │                         │
+              │  snet-shared-services   │
+              │  snet-appgw             │
+              │  snet-nva (NVA router)  │
+              └────────────┬────────────┘
+                           │ VNet Peering
+              ┌────────────┴────────────┐
+              │                         │
 
-Internet traffic enters via Application Gateway in the hub — never directly into spoke subnets. NSGs enforce this boundary explicitly. The `snet-aks` NSG allows inbound only from `10.0.0.0/16` (hub), blocking all direct internet access.
+┌─────────────▼──────────┐ ┌──────────▼──────────────┐
+│ vnet-workloads │ │ vnet-data │
+│ rg-workloads │ │ rg-data │
+│ (10.1.0.0/16) │ │ (10.2.0.0/16) │
+│ │ │ │
+│ snet-compute 10.1.1/24 │ │ (subnets provisioned │
+│ snet-containers 10.1.3 │ │ on demand when │
+│ snet-aks 10.1.4/22 │ │ projects need them) │
+│ │ │ │
+│ UDR: 10.2.0.0/16 → NVA │ │ UDR: 10.1.0.0/16 → NVA │
+└─────────────────────────┘ └──────────────────────────┘
 
-### Traffic Flow — Internet to AKS Workloads
+Inter-Spoke Routing
+Spoke-to-spoke traffic is not transitive through peering alone. All cross-spoke traffic is forced through the hub NVA via UDRs on both spoke subnets. Both directions route through the NVA — asymmetric routing is prevented by design.
 
-```
-Internet
-    │
-    ▼
-Application Gateway (hub - snet-appgw)
-    │  AGIC manages backend pool dynamically
-    ▼
-VNet Peering
-    │
-    ▼
-NGINX Ingress / AGIC (system node pool)
-    │
-    ▼
-Application pods (workload node pool)
-    │  Secrets fetched via workload identity
-    ▼
-Azure Key Vault
-```
+## Security Model
+
+- Trust boundaries
+- Identity flow
+- Network isolation assumptions
 
 ### Terraform State Strategy
 
@@ -75,13 +81,7 @@ tfstate/
 ├── platform-management
 ├── platform-governance
 ├── platform-identity
-└── lz-app-dev-networking
-    lz-app-dev-keyvault
-    lz-app-dev-storage
-    lz-app-dev-vm
-    lz-app-dev-aci
-    lz-app-dev-container-apps
-    lz-app-dev-aks
+
 ```
 
 A broken workload deployment cannot corrupt platform state. Blast radius is scoped to the module. State files are protected by blob versioning, soft delete, and a `CanNotDelete` resource lock on `rg-tfstate`.
@@ -90,34 +90,32 @@ A broken workload deployment cannot corrupt platform state. Blast radius is scop
 
 ## Repository Structure
 
-```
 azure-landing-zone/
 ├── .github/
-│   ├── terraform-modules.json          ← module registry for matrix CI/CD
-│   └── workflows/
-│       ├── terraform-matrix-plan.yml   ← PR plan with parallel matrix
-│       ├── terraform-matrix-apply.yml  ← sequential apply on merge
-│       └── drift-detection.yml         ← weekly scheduled drift check
-├── platform/
-│   ├── bootstrap/        ← remote state storage, versioning, resource lock
-│   ├── connectivity/     ← hub VNet, subnets, Private DNS zones (hub pattern)
-│   ├── management/       ← Log Analytics, alerts, backup vault, budgets
-│   ├── governance/       ← Azure Policy definitions and assignments
-│   └── identity/
-│       └── github-oidc/  ← App Registration, federated credentials, RBAC
-└── landing-zones/
-    └── app-dev/
-        ├── networking/   ← spoke VNet, subnets, NSGs, peering, diagnostic settings
-        └── workloads/
-            ├── compute/
-            │   ├── aci/             ← Azure Container Instances
-            │   ├── container-apps/  ← Container Apps + monitoring
-            │   ├── vm/              ← Virtual Machines
-            │   └── aks/             ← AKS, AGIC, workload identity, Key Vault CSI
-            ├── storage/             ← Storage Account, Private Endpoint, Private Link
-            └── security/
-                └── keyvault/        ← Key Vault, RBAC, secrets
-```
+│ ├── terraform-modules.json ← module registry for CI/CD pipeline
+│ └── workflows/
+│ ├── terraform-matrix-plan.yml ← PR: parallel plan per changed module
+│ ├── terraform-matrix-apply.yml ← merge: sequential apply in tier order
+│ └── drift-detection.yml ← weekly: drift detection across all modules
+│
+└── platform/
+├── bootstrap/ ← tier 0: state storage, versioning, lock
+├── connectivity/ ← tier 1: ALL network topology
+│ ├── main.tf # hub VNet and subnets
+│ ├── spokes.tf # workloads and data spoke VNets
+│ ├── peering.tf # all VNet peerings
+│ ├── nsg.tf # all NSGs and rules
+│ ├── udr.tf # route tables and associations
+│ ├── diagnostics.tf # NSG flow logs → law-platform
+│ ├── variables.tf
+│ ├── outputs.tf # every ID workloads will ever need
+│ ├── backend.tf
+│ └── versions.tf
+├── management/ ← tier 1: observability, budgets, backup
+├── governance/ ← tier 2: Azure Policy
+├── identity/
+│ └── github-oidc/ ← tier 2: OIDC for this repo and workload repos
+└── nva/ ← tier 2: hub NVA VM (ci_enabled: false)
 
 ---
 
@@ -173,115 +171,47 @@ Azure Resource Manager
 
 The service principal has scoped RBAC — Contributor on workload resource groups, Reader on platform resource groups. Not broad subscription-level access.
 
-### AKS — Workload Identity & Key Vault Integration
-
-AKS cluster (`aks-app-dev`) uses Azure CNI — pod IPs come directly from the VNet address space enabling direct NSG enforcement at pod level.
-
-Workload identity replaces Kubernetes Secrets for sensitive values:
-
-```
-Pod (nginx-demo-sa service account)
-    │
-    │  OIDC projected service account token
-    ▼
-Azure AD — validates federated credential subject claim
-    │  system:serviceaccount:default:nginx-demo-sa
-    ▼
-Managed Identity (mi-aks-nginx-demo)
-    │  Key Vault Secrets User role
-    ▼
-Azure Key Vault — secret fetched at pod startup
-    │
-    ▼
-CSI Secrets Store — syncs to Kubernetes secret
-    │
-    ▼
-Pod env var — DB_PASSWORD injected at runtime
-```
-
-No credentials stored in the cluster. Federated credential subject is scoped to a specific service account — other pods in the cluster cannot assume the identity.
-
-### Application Gateway — Hub Ingress Pattern
-
-Application Gateway lives in the hub VNet (`snet-appgw 10.0.2.0/24`). AGIC (Application Gateway Ingress Controller) runs inside AKS and watches Kubernetes Ingress resources — when an Ingress is created or updated, AGIC automatically updates the Application Gateway backend pool via the Azure API. No hardcoded backend IPs.
-
-Traffic path:
-
-```
-Internet → Application Gateway (hub) → VNet Peering → Pods (spoke)
-```
-
-Direct internet access to spoke subnets is blocked by NSG — the hub is the only entry point.
-
-### Private Endpoints & DNS
-
-Storage accounts connect to the spoke VNet via Private Link:
-
-- Private Endpoint NIC deployed in `snet-data` (10.1.2.0/24)
-- `public_network_access_enabled = false` — public endpoint blocked
-- `default_action = "Deny"` on network rules — all traffic via private endpoint
-- `depends_on` on storage container — prevents firewall locking Terraform out mid-apply
-
-Centralised Private DNS zones defined in hub (`platform/connectivity/private-dns.tf`):
-
-| Zone                                | Service            |
-| ----------------------------------- | ------------------ |
-| `privatelink.blob.core.windows.net` | Blob Storage       |
-| `privatelink.vaultcore.azure.net`   | Key Vault          |
-| `privatelink.azurecr.io`            | Container Registry |
-| `privatelink.eastus2.azmk8s.io`     | AKS API server     |
-
-DNS zones live in the hub and link to all spokes — new spokes inherit DNS resolution automatically without managing their own zones.
-
-### Disaster Recovery
-
-| Protection              | Resource        | Detail                                                   |
-| ----------------------- | --------------- | -------------------------------------------------------- |
-| Blob versioning         | `sttfstate7tcl` | Every state file overwrite retains previous version      |
-| Blob soft delete        | `sttfstate7tcl` | Deleted blobs recoverable for 7 days                     |
-| Container soft delete   | `sttfstate7tcl` | Deleted containers recoverable for 7 days                |
-| Resource lock           | `rg-tfstate`    | `CanNotDelete` — prevents accidental RG deletion         |
-| Key Vault soft delete   | `kv-aks-appdev` | Secrets recoverable for 7 days after deletion            |
-| Backup vault            | `rsv-platform`  | VM backup policy — daily 2AM UTC, 7 daily restore points |
-| Log Analytics retention | `law-platform`  | 30 days explicit, daily quota cap 1GB                    |
-
----
-
 ## CI/CD Pipeline
+
+- Backend uses blob lease locking to prevent concurrent apply conflicts
 
 ### How It Works
 
-```
-PR Opened
-    │
-    ▼
-Detect changed modules (terraform-modules.json)
-    │
-    ▼
-Matrix Plan — parallel, one job per changed module
-    │
-    ▼
-Post plan diff as PR comment — peer review
-    │
-    ▼
+PR opened touching platform/\*\*
+│
+▼
+Detect changed modules → terraform-modules.json
+│
+▼
+Matrix Plan — parallel per changed module
+│ Posts plan diff as PR comment
+▼
+Peer review
+│
+▼
 Merge to main
-    │
-    ▼
-Matrix Apply — sequential, dependency order enforced
-    │
-    ▼
-Drift Detection — weekly scheduled plan across all modules
-```
+│
+▼
+Matrix Apply — sequential, tier order enforced
+│
+▼
+Weekly Drift Detection — all modules
+│ Non-empty plan → GitHub issue opened automatically
 
 ### Key Design Decisions
 
-**Matrix strategy over monolithic workflow** — modules detected dynamically from `terraform-modules.json`. Adding a new module to CI/CD is a one-line JSON change.
+All platform modules are ci_enabled: false. Platform infrastructure is sensitive. Connectivity, governance, and identity changes require explicit human review and manual apply. The pipeline plans and detects drift — it never auto-applies platform changes.
 
-**Sequential apply, parallel plan** — planning in parallel is safe (read-only). Applying sequentially respects tier dependency order — platform before landing zones, networking before workloads.
+Sequential apply, tier-ordered. Bootstrap before connectivity. Connectivity before governance. Tier order is enforced by the pipeline, not assumed.
 
-**`ci_enabled` flag per module** — platform modules (`ci_enabled: false`) require manual apply. Landing zone modules (`ci_enabled: true`) run through the automated pipeline. Prevents auto-applying sensitive platform changes.
+Drift detection raises GitHub issues. A weekly scheduled plan across all modules surfaces any divergence between declared state and real infrastructure. The issue body contains the full plan output and three resolution options: accept, correct, or investigate.
 
-**Drift detection** — weekly scheduled workflow runs `terraform plan` across all modules. Non-empty plan means real infrastructure diverged from state — workflow fails and alerts.
+Independent pipelines per repository. This repository's pipeline only touches platform/**. The azure-app-dev pipeline only touches workloads/**. A workload change never triggers a platform plan.
+
+## Design Trade-offs
+
+- NVA vs Azure Firewall → chose NVA for cost and learning visibility
+- Manual apply vs full automation → prioritised safety over speed
 
 ---
 
@@ -289,16 +219,13 @@ Drift Detection — weekly scheduled plan across all modules
 
 This project runs on a $20/month budget. Workloads are deployed for learning, validated, then destroyed.
 
-| Resource                  | Status                                  | Monthly Cost  |
-| ------------------------- | --------------------------------------- | ------------- |
-| Storage Account (tfstate) | ✅ Permanent                            | ~$1           |
-| Log Analytics Workspace   | ✅ Permanent                            | ~$1           |
-| Recovery Services Vault   | ✅ Permanent                            | ~$0           |
-| Private DNS Zones (hub)   | 📝 Code only — not applied              | $0            |
-| AKS Cluster + App Gateway | 🗑️ Ephemeral — destroyed after sessions | $0            |
-| Container Apps            | 🗑️ Ephemeral                            | $0            |
-| Virtual Machine           | 🗑️ Ephemeral                            | $0            |
-| **Total**                 |                                         | **~$3/month** |
+| Resource                  | Status                           | Monthly Cost  |
+| ------------------------- | -------------------------------- | ------------- |
+| Storage Account (tfstate) | ✅ Permanent                     | $1            |
+| Log Analytics Workspace   | ✅ Permanent                     | $1            |
+| Recovery Services Vault   | No cost until a VM is registered | $0            |
+| Private DNS Zones (hub)   | Provision On demand              | $0            |
+| **Total**                 |                                  | **~$2/month** |
 
 Budget alerts configured at subscription ($20) and resource group ($15) level — email notifications at 50%, 80%, 100% actual and forecasted thresholds.
 
@@ -310,9 +237,7 @@ Destroying workloads after validation is intentional — demonstrates cost-aware
 
 **Terraform** — remote state, cross-module data sources, output chaining, `for_each` for scalable resource creation, `depends_on` for explicit dependency ordering, provider configuration, lifecycle rules
 
-**Azure Networking** — hub-spoke VNet topology, NSG rules and associations, VNet peering (bidirectional), Private Endpoints, Private Link, Private DNS zones, Application Gateway, AGIC
-
-**AKS** — Azure CNI networking, system and workload node pools, node labels and selectors, OIDC issuer, workload identity, federated credentials, CSI Secrets Store driver
+**Azure Networking** — hub-spoke VNet topology, NSG rules and associations, VNet peering
 
 **Identity & Security** — OIDC federated credentials, managed identities, RBAC least-privilege scoping, Key Vault RBAC authorisation, workload identity token exchange flow
 
@@ -344,25 +269,16 @@ cd platform/connectivity && terraform init && terraform apply
 cd platform/management  && terraform init && terraform apply
 cd platform/governance  && terraform init && terraform apply
 
-# 4. Landing zone networking
-cd landing-zones/app-dev/networking && terraform init && terraform apply
-
-# 5. Workloads — deploy to test, destroy when done
-cd landing-zones/app-dev/workloads/compute/aks && terraform init && terraform apply
 ```
 
 After step 2, subsequent deployments run automatically via GitHub Actions on PR and merge.
 
 ---
 
-## Learning Log
+## Related Repositories
 
-Weekly progress documented in [`docs/`](docs/) — covering decisions made, problems encountered, errors triaged, and what each week taught. Built over 6 months targeting Cloud and Platform Engineer roles.
+Repository Purpose Consumes azure-landing-zone Platform foundation (this repo) - azure-app-dev Workload deployments platform-connectivity.tfstate
 
-Architecture decisions and Mermaid diagrams in [`docs/architecture.md`](docs/architecture.md).
+## Author
 
----
-
-## License
-
-MIT — see [LICENSE](LICENSE)
+github.com/moshstaq
