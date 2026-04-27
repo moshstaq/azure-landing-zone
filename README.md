@@ -106,36 +106,36 @@ A broken workload deployment cannot corrupt platform state. Blast radius is scop
 ```
 azure-landing-zone/
 ├── .github/
-│   ├── terraform-modules.json        # module registry for CI/CD pipeline
+│   ├── terraform-modules.json        ← module registry for CI/CD pipeline
 │   │
 │   └── workflows/
-│       ├── terraform-matrix-plan.yml     # PR: parallel plan per changed module
-│       ├── terraform-matrix-apply.yml    # merge: sequential apply in tier order
-│       └── drift-detection.yml           # weekly: drift detection across all modules
+│       ├── terraform-matrix-plan.yml     ← PR: parallel plan per changed module
+│       ├── terraform-matrix-apply.yml    ← merge: sequential apply in tier order
+│       └── drift-detection.yml           ← weekly: drift detection across all modules
 │
 └── platform/
-    ├── bootstrap/                   # tier 0: state storage, versioning, lock
+    ├── bootstrap/                   ← tier 0: state storage, versioning, lock
     │
-    ├── connectivity/                # tier 1: ALL network topology
+    ├── connectivity/                ← tier 1: ALL network topology
     │   ├── main.tf                  # hub VNet and subnets
-    │   ├── spokes.tf                # workload + data VNets
-    │   ├── peering.tf               # VNet peerings
-    │   ├── nsg.tf                   # NSGs and rules
-    │   ├── udr.tf                   # route tables + associations
+    │   ├── spokes.tf                # workloads and data spoke VNets
+    │   ├── peering.tf               # all VNet peerings
+    │   ├── nsg.tf                   # all NSGs and rules
+    │   ├── udr.tf                   # route tables and associations
     │   ├── diagnostics.tf           # NSG flow logs → law-platform
     │   ├── variables.tf
-    │   ├── outputs.tf               # exposes IDs for downstream use
+    │   ├── outputs.tf               # every ID workloads will ever need
     │   ├── backend.tf
     │   └── versions.tf
     │
-    ├── management/                  # tier 1: observability, budgets, backup
+    ├── management/                  ← tier 1: observability, budgets, backup
     │
-    ├── governance/                  # tier 2: Azure Policy
+    ├── governance/                  ← tier 2: Azure Policy
     │
     ├── identity/
-    │   └── github-oidc/             # tier 2: OIDC for this + workload repos
+    │   └── github-oidc/             ← tier 2: OIDC for this repo
     │
-    └── nva/                         # tier 2: hub NVA VM (ci_enabled: false)
+    └── nva/                         ← tier 2: hub NVA VM (ci_enabled: false)
 ```
 
 ---
