@@ -35,17 +35,20 @@ Tenant Root Group
 
 ### Hub-Spoke Network Topology
 
+## Network Architecture
+
+```
                         Internet
                            │
                   (Ingress / Egress)
                            │
               ┌────────────▼────────────┐
               │  vnet-hub (10.0.0.0/16) │
-              │  rg-platform-connectivity│
+              │ rg-platform-connectivity│
               │                         │
-              │  snet-ingress           │ → App Gateway (L7)
-              │  snet-firewall          │ → NVA / Azure Firewall
-              │  snet-shared-services   │ → Bastion, DNS, Private Endpoints
+              │  snet-appgw.            │
+              │  snet-NVA               │
+              │  snet-shared-services   │
               │                         │
               │  Centralised Routing &  │
               │  Security Enforcement   │
@@ -56,19 +59,20 @@ Tenant Root Group
         ┌──────────────────┴──────────────────┐
         │                                     │
 
-┌─────────────▼────────────┐ ┌────────────▼────────────┐
-│ vnet-workloads │ │ vnet-data │
-│ (10.1.0.0/16) │ │ (10.2.0.0/16) │
-│ rg-workloads │ │ rg-data │
-│ │ │ │
-│ snet-compute 10.1.1.0/24 │ │ Subnets provisioned │
-│ snet-containers 10.1.3.0 │ │ on demand (PaaS / PE) │
-│ snet-aks 10.1.4.0/22 │ │ │
-│ │ │ │
-│ │ │ UDR: 10.1.0.0/16 → NVA │
-│ UDR: 10.2.0.0/16 → NVA │ │ │
-│ (Forced Tunnelling) │ │ │
-└──────────────────────────┘ └─────────────────────────┘
+┌─────────────▼────────────┐      ┌────────────▼────────────┐
+│ vnet-workloads           │      │ vnet-data               │
+│ (10.1.0.0/16)            │      │ (10.2.0.0/16)           │
+│ rg-workloads             │      │ rg-data                 │
+│                          │      │                         │
+│ snet-compute 10.1.1.0/24 │      │ Subnets provisioned     │
+│ snet-containers 10.1.3.0 │      │ on demand (PaaS / PE)   │
+│ snet-aks 10.1.4.0/22     │      │                         │
+│                          │      │                         │
+│                          │      │ UDR: 10.1.0.0/16 → NVA  │
+│ UDR: 10.2.0.0/16 → NVA   │      │                         │
+│ (Forced Tunnelling)      │      │                         │
+└──────────────────────────┘      └─────────────────────────┘
+```
 
 Inter-Spoke Routing
 Spoke-to-spoke traffic is not transitive through peering alone. All cross-spoke traffic is forced through the hub NVA via UDRs on both spoke subnets. Both directions route through the NVA — asymmetric routing is prevented by design.
@@ -99,38 +103,40 @@ A broken workload deployment cannot corrupt platform state. Blast radius is scop
 
 ## Repository Structure
 
+```
 azure-landing-zone/
 ├── .github/
-│ ├── terraform-modules.json # module registry for CI/CD pipeline
-│ │
-│ └── workflows/
-│ ├── terraform-matrix-plan.yml # PR: parallel plan per changed module
-│ ├── terraform-matrix-apply.yml # merge: sequential apply in tier order
-│ └── drift-detection.yml # weekly: drift detection across all modules
+│   ├── terraform-modules.json        # module registry for CI/CD pipeline
+│   │
+│   └── workflows/
+│       ├── terraform-matrix-plan.yml     # PR: parallel plan per changed module
+│       ├── terraform-matrix-apply.yml    # merge: sequential apply in tier order
+│       └── drift-detection.yml           # weekly: drift detection across all modules
 │
 └── platform/
-├── bootstrap/ # tier 0: state storage, versioning, lock
-│
-├── connectivity/ # tier 1: ALL network topology
-│ ├── main.tf # hub VNet and subnets
-│ ├── spokes.tf # workload + data VNets
-│ ├── peering.tf # VNet peerings
-│ ├── nsg.tf # NSGs and rules
-│ ├── udr.tf # route tables + associations
-│ ├── diagnostics.tf # NSG flow logs → law-platform
-│ ├── variables.tf
-│ ├── outputs.tf # exposes IDs for downstream use
-│ ├── backend.tf
-│ └── versions.tf
-│
-├── management/ # tier 1: observability, budgets, backup
-│
-├── governance/ # tier 2: Azure Policy
-│
-├── identity/
-│ └── github-oidc/ # tier 2: OIDC for this + workload repos
-│
-└── nva/ # tier 2: hub NVA VM (ci_enabled: false)
+    ├── bootstrap/                   # tier 0: state storage, versioning, lock
+    │
+    ├── connectivity/                # tier 1: ALL network topology
+    │   ├── main.tf                  # hub VNet and subnets
+    │   ├── spokes.tf                # workload + data VNets
+    │   ├── peering.tf               # VNet peerings
+    │   ├── nsg.tf                   # NSGs and rules
+    │   ├── udr.tf                   # route tables + associations
+    │   ├── diagnostics.tf           # NSG flow logs → law-platform
+    │   ├── variables.tf
+    │   ├── outputs.tf               # exposes IDs for downstream use
+    │   ├── backend.tf
+    │   └── versions.tf
+    │
+    ├── management/                  # tier 1: observability, budgets, backup
+    │
+    ├── governance/                  # tier 2: Azure Policy
+    │
+    ├── identity/
+    │   └── github-oidc/             # tier 2: OIDC for this + workload repos
+    │
+    └── nva/                         # tier 2: hub NVA VM (ci_enabled: false)
+```
 
 ---
 
