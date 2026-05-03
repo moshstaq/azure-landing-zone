@@ -133,9 +133,8 @@ azure-landing-zone/
     ├── governance/                  ← tier 2: Azure Policy
     │
     ├── identity/
-    │   └── github-oidc/             ← tier 2: OIDC for this repo
-    │
-    └── nva/                         ← tier 2: hub NVA VM (ci_enabled: false)
+    │   └── github-oidc/             ← tier 2: OIDC federation for Github actions
+
 ```
 
 ---
@@ -194,7 +193,7 @@ The service principal has scoped RBAC — Contributor on workload resource group
 
 ## CI/CD Pipeline
 
-- Backend uses blob lease locking to prevent concurrent apply conflicts
+- Backend uses blob lease locking to prevent concurrent apply conflicts. All workflows authenticate via OIDC — no secrets stored in GitHub.
 
 ### How It Works
 
@@ -298,7 +297,10 @@ After step 2, subsequent deployments run automatically via GitHub Actions on PR 
 
 ## Related Repositories
 
-Repository Purpose Consumes azure-landing-zone Platform foundation (this repo) - azure-app-dev Workload deployments platform-connectivity.tfstate
+| Repository                   | Purpose                                                              |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `azure-app-dev` _(planned)_  | Workload deployments (AKS, ACI, Key Vault, Storage)                  |
+| _(cross-spoke data project)_ | Private DNS, cross-spoke networking, managed identity storage access |
 
 ## Author
 
