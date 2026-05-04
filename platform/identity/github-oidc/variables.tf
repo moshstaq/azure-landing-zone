@@ -13,9 +13,11 @@ variable "github_org" {
   type        = string
 }
 
-variable "github_repo" {
-  description = "GitHub repository name"
-  type        = string
+variable "repos" {
+  description = "Map of GitHub repositories to provision OIDC service principals for. Key must match the exact GitHub repository name."
+  type = map(object({
+    display_name = string
+  }))
 }
 
 variable "environment" {

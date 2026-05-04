@@ -82,3 +82,15 @@ resource "azurerm_virtual_network" "data" {
 }
 
 
+# ── Taskflow Workload Landing Zone ───────────────────────────────────────────
+
+resource "azurerm_resource_group" "taskflow" {
+  name     = "rg-taskflow"
+  location = var.location
+
+  tags = {
+    environment = "workloads"
+    purpose     = "taskflow-platform"
+    managed_by  = "terraform"
+  }
+}
