@@ -1,6 +1,6 @@
 # Azure Landing Zone v2
 
-Enterprise-grade Azure infrastructure built with Terraform, implementing Cloud Adoption Framework (CAF) landing zone patterns. Built as a hands-on learning project to demonstrate platform engineering skills across governance, networking, identity, observability, and CI/CD automation. This repository owns the platform foundation
+Enterprise-grade Azure platform foundation built with Terraform, implementing hub-and-spoke networking, centralised observability, secretless CI/CD, and a governed identity model for workload repositories. This repository owns the platform layer only — it never deploys application workloads.
 
 [![Terraform](https://img.shields.io/badge/Terraform-1.5+-623CE4?logo=terraform)](https://terraform.io)
 [![Azure](https://img.shields.io/badge/Azure-Landing%20Zone-0078D4?logo=microsoft-azure)](https://azure.microsoft.com)
@@ -11,12 +11,9 @@ Enterprise-grade Azure infrastructure built with Terraform, implementing Cloud A
 
 ## What This Is
 
-A production-pattern Azure Landing Zone built from scratch — not a template. Every resource is defined in Terraform, every deployment runs through GitHub Actions, and every design decision mirrors what platform teams do at enterprise scale.
+A production-pattern Azure platform built from scratch — not a template. Every resource is defined in Terraform, every deployment runs through GitHub Actions with OIDC authentication, and every design decision mirrors what platform teams do at enterprise scale.
 
-This covers the full platform stack: management group hierarchy, hub-spoke networking, Azure Policy governance, centralised observability, secretless CI/CD via OIDC,and cost management.
-
-What does not live here: application workloads, container deployments, AKS clusters, storage accounts, or any compute that serves an application. Those live in workload repositories that consume this platform's outputs.
-The companion workload repository is azure-app-dev.
+This repository owns: hub-and-spoke networking, Azure Policy governance, centralised observability, secretless CI/CD identity, and workload landing zones. What does not live here: application workloads, container deployments, AKS clusters, or any compute that serves an application. Those live in workload repositories that consume this platform's outputs via remote state.
 
 ---
 
@@ -74,14 +71,11 @@ Tenant Root Group
 └──────────────────────────┘      └─────────────────────────┘
 ```
 
-Inter-Spoke Routing
-Spoke-to-spoke traffic is not transitive through peering alone. All cross-spoke traffic is forced through the hub NVA via UDRs on both spoke subnets. Both directions route through the NVA — asymmetric routing is prevented by design.
+### Inter-Spoke Routing
 
-## Security Model
+All cross-spoke traffic is forced through the hub NVA via UDRs on both spoke subnets. Spoke-to-spoke traffic is not transitive through peering alone. Asymmetric routing is prevented by design.
 
-- Trust boundaries
-- Identity flow
-- Network isolation assumptions
+Workload landing zones: rg-taskflow is provisioned by this repository as an empty resource group. The taskflow-platform workload repository deploys into it. This is the platform landing zone pattern — the platform provisions the boundary, the workload fills it.
 
 ### Terraform State Strategy
 
@@ -97,7 +91,7 @@ tfstate/
 
 ```
 
-A broken workload deployment cannot corrupt platform state. Blast radius is scoped to the module. State files are protected by blob versioning, soft delete, and a `CanNotDelete` resource lock on `rg-tfstate`.
+A broken workload deployment cannot corrupt platform state. State files are protected by blob versioning, soft delete, and a `CanNotDelete` resource lock on `rg-tfstate`.
 
 ---
 
@@ -133,7 +127,7 @@ azure-landing-zone/
     ├── governance/                  ← tier 2: Azure Policy
     │
     ├── identity/
-    │   └── github-oidc/             ← tier 2: OIDC federation for Github actions
+    │   └── github-oidc/             ← tier 2: OIDC federation for all workloads
 
 ```
 
@@ -157,9 +151,9 @@ The `DeployIfNotExists` effect is the most operationally significant — it auto
 
 Centralised Log Analytics workspace (`law-platform`) receives:
 
-- Azure Activity Logs — all eight categories at subscription scope
-- NSG flow logs — `NetworkSecurityGroupEvent` and `NetworkSecurityGroupRuleCounter` from all spoke NSGs
-- AKS telemetry — OMS agent wired to `law-platform` via Terraform
+- NSG flow logs from all connectivity subnets
+- Activity Logs from all subscriptions via the Azure Monitor subscription diagnostic setting
+- AKS telemetry from workload repositories (planned)
 
 Three KQL-based scheduled query alerts run against this workspace:
 
@@ -175,21 +169,17 @@ Daily quota cap of 1GB on `law-platform` protects against unexpected ingestion c
 
 ### Identity & Authentication
 
-No stored secrets anywhere in this repository. GitHub Actions authenticates to Azure via OIDC federated credentials:
+No stored secrets anywhere. GitHub Actions authenticates to Azure via OIDC federated credentials. The platform/identity/github-oidc module manages all workload service principals using for_each — the platform is the gatekeeper for what repositories get Azure access and at what scope.
 
-```
-GitHub Actions Runner
-       │
-       │  JWT token (short-lived, audience: api://AzureADTokenExchange)
-       ▼
-Azure AD App Registration
-       │
-       │  Access token scoped to specific resource groups
-       ▼
-Azure Resource Manager
-```
+#Current Service Principals Managed by This Module
 
-The service principal has scoped RBAC — Contributor on workload resource groups, Reader on platform resource groups. Not broad subscription-level access.
+| Repository         | Scope                                                                   | Role                |
+| ------------------ | ----------------------------------------------------------------------- | ------------------- |
+| azure-landing-zone | rg-platform-connectivity, rg-workloads, rg-data, rg-platform-management | Contributor         |
+| taskflow-platform  | rg-taskflow                                                             | Contributor         |
+| taskflow-platform  | snet-aks                                                                | Network Contributor |
+
+Adding a new workload repository requires a new entry in `terraform.tfvars` and RBAC defined in `rbac.tf`. The platform team controls it. The workload team consumes it.
 
 ## CI/CD Pipeline
 
@@ -218,22 +208,16 @@ Matrix Apply — sequential, tier order enforced
 Weekly Drift Detection — all modules
 │ Non-empty plan → GitHub issue opened automatically
 
-### Key Design Decisions
+All platform modules are ci_enabled: false. The pipeline plans and detects drift — it never auto-applies platform changes. Platform infrastructure changes require explicit human review and manual apply.
 
-All platform modules are ci_enabled: false. Platform infrastructure is sensitive. Connectivity, governance, and identity changes require explicit human review and manual apply. The pipeline plans and detects drift — it never auto-applies platform changes.
+### Design Decisions
 
-Sequential apply, tier-ordered. Bootstrap before connectivity. Connectivity before governance. Tier order is enforced by the pipeline, not assumed.
+NVA over Azure Firewall — cost and routing visibility. The NVA handles east-west spoke-to-spoke traffic only. AKS internet egress uses NAT Gateway, not the NVA, to avoid a single point of failure on the cluster's control plane path.
+Manual apply for platform modules — platform changes are sensitive. Connectivity, governance, and identity mistakes are hard to recover from. Speed is not the priority here.
 
-Drift detection raises GitHub issues. A weekly scheduled plan across all modules surfaces any divergence between declared state and real infrastructure. The issue body contains the full plan output and three resolution options: accept, correct, or investigate.
+Landing zone pattern for workloads — platform/connectivity provisions empty resource groups for each workload. The workload repo deploys into the RG it has been handed. This maintains a clean `platform/workload` boundary and prevents workload pipelines from needing access to platform resource groups.
 
-Independent pipelines per repository. This repository's pipeline only touches platform/**. The azure-app-dev pipeline only touches workloads/**. A workload change never triggers a platform plan.
-
-## Design Trade-offs
-
-- NVA vs Azure Firewall → chose NVA for cost and learning visibility
-- Manual apply vs full automation → prioritised safety over speed
-
----
+`for_each` for OIDC service principals — all GitHub Actions SPs are managed in one place. Adding a new workload is a three-file change: `spokes.tf, rbac.tf`, and `terraform.tfvars`.
 
 ## Cost Management
 
@@ -241,35 +225,14 @@ This project runs on a $20/month budget. Workloads are deployed for learning, va
 
 | Resource                  | Status                           | Monthly Cost  |
 | ------------------------- | -------------------------------- | ------------- |
-| Storage Account (tfstate) | ✅ Permanent                     | $1            |
-| Log Analytics Workspace   | ✅ Permanent                     | $1            |
+| Storage Account (tfstate) | Permanent                        | $1            |
+| Log Analytics Workspace   | Permanent                        | $1            |
 | Recovery Services Vault   | No cost until a VM is registered | $0            |
-| Private DNS Zones (hub)   | Provision On demand              | $0            |
 | **Total**                 |                                  | **~$2/month** |
 
 Budget alerts configured at subscription ($20) and resource group ($15) level — email notifications at 50%, 80%, 100% actual and forecasted thresholds.
 
 Destroying workloads after validation is intentional — demonstrates cost-aware engineering and keeps focus on the platform layer where the durable value is.
-
----
-
-## Skills Demonstrated
-
-**Terraform** — remote state, cross-module data sources, output chaining, `for_each` for scalable resource creation, `depends_on` for explicit dependency ordering, provider configuration, lifecycle rules
-
-**Azure Networking** — hub-spoke VNet topology, NSG rules and associations, VNet peering
-
-**Identity & Security** — OIDC federated credentials, managed identities, RBAC least-privilege scoping, Key Vault RBAC authorisation, workload identity token exchange flow
-
-**Governance** — Management Group hierarchy, Azure Policy (Deny + DeployIfNotExists), policy inheritance, tag enforcement
-
-**Observability** — Log Analytics KQL queries, scheduled query alerts, Action Groups, diagnostic settings (resource and subscription scope), NSG flow logs, Activity Log forwarding
-
-**CI/CD** — GitHub Actions matrix strategy, OIDC secretless authentication, artifact passing, PR comment automation, drift detection, environment protection gates, `ci_enabled` module flag
-
-**Disaster Recovery** — blob versioning, soft delete, resource locks, Recovery Services Vault, backup policies
-
-**Cost Management** — budget alerts with tiered thresholds, forecasted spend alerts, daily quota caps, ephemeral workload discipline
 
 ---
 
@@ -297,10 +260,9 @@ After step 2, subsequent deployments run automatically via GitHub Actions on PR 
 
 ## Related Repositories
 
-| Repository                   | Purpose                                                              |
-| ---------------------------- | -------------------------------------------------------------------- |
-| `azure-app-dev` _(planned)_  | Workload deployments (AKS, ACI, Key Vault, Storage)                  |
-| _(cross-spoke data project)_ | Private DNS, cross-spoke networking, managed identity storage access |
+| Repository          | Purpose                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| `taskflow-platform` | EContainerised task processing platform on AKS. Consumes platform networking via remote state. |
 
 ## Author
 
