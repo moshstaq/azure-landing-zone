@@ -187,6 +187,7 @@ Adding a new workload repository requires a new entry in `terraform.tfvars` and 
 
 ### How It Works
 
+```
 PR opened touching platform/\*\*
 │
 ▼
@@ -207,6 +208,7 @@ Matrix Apply — sequential, tier order enforced
 ▼
 Weekly Drift Detection — all modules
 │ Non-empty plan → GitHub issue opened automatically
+```
 
 All platform modules are ci_enabled: false. The pipeline plans and detects drift — it never auto-applies platform changes. Platform infrastructure changes require explicit human review and manual apply.
 
