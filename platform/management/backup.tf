@@ -10,8 +10,6 @@ resource "azurerm_recovery_services_vault" "platform" {
   resource_group_name = azurerm_resource_group.management.name
   sku                 = "Standard"
 
-  # Soft delete — deleted backup data retained for 14 days
-  soft_delete_enabled = true
 
   # Immutability — prevents backup data modification
   immutability      = "Disabled"

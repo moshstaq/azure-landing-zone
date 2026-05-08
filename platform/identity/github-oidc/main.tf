@@ -74,3 +74,5 @@ resource "azuread_application_federated_identity_credential" "pull_request" {
   audiences      = ["api://AzureADTokenExchange"]
   description    = "Trust GitHub Actions from pull requests"
 }
+
+
