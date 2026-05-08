@@ -7,6 +7,10 @@ data "azurerm_subscription" "budget" {}
 # Subscription-level budget
 # Monthly limit with tiered alert thresholds
 # ─────────────────────────────────────────────────────
+
+locals {
+  budget_start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+}
 resource "azurerm_consumption_budget_subscription" "monthly" {
   name            = "budget-sub-monthly"
   subscription_id = data.azurerm_subscription.budget.id
@@ -15,7 +19,7 @@ resource "azurerm_consumption_budget_subscription" "monthly" {
   time_grain = "Monthly"
 
   time_period {
-    start_date = "2026-03-01T00:00:00Z"
+    start_date = local.budget_start_date
   }
 
   # 50% threshold — early warning
@@ -60,19 +64,19 @@ resource "azurerm_consumption_budget_subscription" "monthly" {
 }
 
 # ─────────────────────────────────────────────────────
-# Resource group budget — app-dev workloads
+# Resource group budget — taskflow workloads
 # Tighter limit on the workload RG where
 # ephemeral expensive resources run (AKS, App Gateway)
 # ─────────────────────────────────────────────────────
-resource "azurerm_consumption_budget_resource_group" "app_dev" {
-  name              = "budget-rg-app-dev-monthly"
-  resource_group_id = "/subscriptions/${data.azurerm_subscription.budget.subscription_id}/resourceGroups/rg-app-dev"
+resource "azurerm_consumption_budget_resource_group" "taskflow" {
+  name              = "budget-rg-taskflow-monthly"
+  resource_group_id = "/subscriptions/${data.azurerm_subscription.budget.subscription_id}/resourceGroups/rg-taskflow"
 
   amount     = 15
   time_grain = "Monthly"
 
   time_period {
-    start_date = "2026-03-01T00:00:00Z"
+    start_date = local.budget_start_date
   }
 
   notification {

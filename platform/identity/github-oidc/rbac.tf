@@ -42,7 +42,7 @@ resource "azurerm_role_assignment" "landing_zone_tfstate_reader" {
 # -----------------------------------------------------
 # taskflow-platform SP
 # Contributor on rg-taskflow for all workload resources
-# Network Contributor on snet-aks for NAT Gateway association
+# Network Contributor on the workloads Vnet and subnets
 # -----------------------------------------------------
 resource "azurerm_role_assignment" "taskflow_contributor" {
   scope                = data.azurerm_resource_group.taskflow.id
@@ -50,8 +50,8 @@ resource "azurerm_role_assignment" "taskflow_contributor" {
   principal_id         = azuread_service_principal.github_actions["taskflow-platform"].object_id
 }
 
-resource "azurerm_role_assignment" "taskflow_aks_subnet" {
-  scope                = data.azurerm_subnet.aks.id
+resource "azurerm_role_assignment" "taskflow_network_contributor" {
+  scope                = data.azurerm_resource_group.workloads.id
   role_definition_name = "Network Contributor"
   principal_id         = azuread_service_principal.github_actions["taskflow-platform"].object_id
 }
