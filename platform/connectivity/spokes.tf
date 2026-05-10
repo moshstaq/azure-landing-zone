@@ -1,14 +1,18 @@
 # ── Workloads Spoke ───────────────────────────────────────────────────────────
+locals {
+  common_tags = {
+    environment = "workloads"
+    purpose     = "workload-spoke"
+    managed_by  = "terraform"
+  }
+}
+
 
 resource "azurerm_resource_group" "workloads" {
   name     = "rg-workloads"
   location = var.location
 
-  tags = {
-    environment = "workloads"
-    purpose     = "workload-landing-zone"
-    managed_by  = "terraform"
-  }
+  tags = local.common_tags
 }
 
 resource "azurerm_virtual_network" "workloads" {
@@ -17,11 +21,7 @@ resource "azurerm_virtual_network" "workloads" {
   resource_group_name = azurerm_resource_group.workloads.name
   address_space       = ["10.1.0.0/16"]
 
-  tags = {
-    environment = "workloads"
-    purpose     = "workload-spoke"
-    managed_by  = "terraform"
-  }
+  tags = local.common_tags
 }
 
 resource "azurerm_subnet" "workload_compute" {
@@ -61,11 +61,7 @@ resource "azurerm_resource_group" "data" {
   name     = "rg-data"
   location = var.location
 
-  tags = {
-    environment = "platform"
-    purpose     = "data-landing-zone"
-    managed_by  = "terraform"
-  }
+  tags = local.common_tags
 }
 
 resource "azurerm_virtual_network" "data" {
@@ -74,12 +70,10 @@ resource "azurerm_virtual_network" "data" {
   resource_group_name = azurerm_resource_group.data.name
   address_space       = ["10.2.0.0/16"]
 
-  tags = {
-    environment = "platform"
-    purpose     = "data-spoke"
-    managed_by  = "terraform"
-  }
+  tags = local.common_tags
 }
+
+
 
 
 # ── Taskflow Workload Landing Zone ───────────────────────────────────────────

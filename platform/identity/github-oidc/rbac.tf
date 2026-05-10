@@ -44,6 +44,23 @@ resource "azurerm_role_assignment" "landing_zone_tfstate_reader" {
 # Contributor on rg-taskflow for all workload resources
 # Network Contributor on the workloads Vnet and subnets
 # -----------------------------------------------------
+
+data "terraform_remote_state" "connectivity" {
+  backend = "azurerm"
+
+  config = {
+    resource_group_name  = "rg-tfstate"
+    storage_account_name = "sttfstate7tcl"
+    container_name       = "tfstate"
+    key                  = "platform-connectivity.tfstate"
+  }
+}
+
+locals {
+  private_dns_zone_kv_id = data.terraform_remote_state.connectivity.outputs.private_dns_zone_kv_id
+}
+
+
 resource "azurerm_role_assignment" "taskflow_contributor" {
   scope                = data.azurerm_resource_group.taskflow.id
   role_definition_name = "Contributor"
@@ -65,5 +82,11 @@ resource "azurerm_role_assignment" "taskflow_tfstate_blob" {
 resource "azurerm_role_assignment" "taskflow_tfstate_reader" {
   scope                = data.azurerm_resource_group.tfstate.id
   role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["taskflow-platform"].object_id
+}
+
+resource "azurerm_role_assignment" "taskflow_dns_contributor" {
+  scope                = local.private_dns_zone_kv_id
+  role_definition_name = "Private DNS Zone Contributor"
   principal_id         = azuread_service_principal.github_actions["taskflow-platform"].object_id
 }
