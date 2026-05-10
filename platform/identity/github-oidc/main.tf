@@ -33,6 +33,9 @@ data "azurerm_subnet" "aks" {
   resource_group_name  = "rg-workloads"
 }
 
+
+
+
 # -----------------------------------------------------
 # AAD Applications
 # -----------------------------------------------------

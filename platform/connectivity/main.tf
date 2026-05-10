@@ -50,3 +50,5 @@ resource "azurerm_subnet" "nva" {
   # No NSG — intentional. NSG evaluation occurs before NVA forwarding.
   # Traffic policy on this subnet is enforced at the OS level on the NVA.
 }
+
+
