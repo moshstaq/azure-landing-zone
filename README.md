@@ -112,22 +112,35 @@ azure-landing-zone/
     │
     ├── connectivity/                ← tier 1: ALL network topology
     │   ├── main.tf                  # hub VNet and subnets
-    │   ├── spokes.tf                # workloads and data spoke VNets
+    │   ├── spokes.tf                # workloads and data spoke VNets, rg-taskflow landing zone
     │   ├── peering.tf               # all VNet peerings
     │   ├── nsg.tf                   # all NSGs and rules
     │   ├── udr.tf                   # route tables and associations
     │   ├── diagnostics.tf           # NSG flow logs → law-platform
+    │   ├── private-dns.tf           # ephemeral private DNS zones (workload-owned on promotion)
     │   ├── variables.tf
     │   ├── outputs.tf               # every ID workloads will ever need
     │   ├── backend.tf
-    │   └── versions.tf
+    │   └── providers.tf
     │
-    ├── management/                  ← tier 1: observability, budgets, backup
+    ├── management/                  ← tier 1: observability, alerts, backup, budgets
+    │   ├── main.tf                  # Log Analytics workspace
+    │   ├── action-groups.tf         # central alert action group
+    │   ├── activity-logs.tf         # subscription Activity Log → law-platform
+    │   ├── alerts.tf                # KQL scheduled query alerts
+    │   ├── backup.tf                # Recovery Services Vault and VM backup policy
+    │   ├── budget.tf                # subscription and workload RG budget alerts
+    │   ├── outputs.tf
+    │   ├── variables.tf
+    │   ├── backend.tf
+    │   └── providers.tf
     │
     ├── governance/                  ← tier 2: Azure Policy
     │
     ├── identity/
     │   └── github-oidc/             ← tier 2: OIDC federation for all workloads
+    │
+    └── nva/                         ← tier 2: hub NVA for inter-spoke routing
 
 ```
 
@@ -151,9 +164,8 @@ The `DeployIfNotExists` effect is the most operationally significant — it auto
 
 Centralised Log Analytics workspace (`law-platform`) receives:
 
-- NSG flow logs from all connectivity subnets
+- NSG flow logs from all connectivity subnets (NetworkSecurityGroupEvent, NetworkSecurityGroupRuleCounter)
 - Activity Logs from all subscriptions via the Azure Monitor subscription diagnostic setting
-- AKS telemetry from workload repositories (planned)
 
 Three KQL-based scheduled query alerts run against this workspace:
 
@@ -167,17 +179,26 @@ All alerts route to a central Action Group (`ag-platform-alerts`) with email not
 
 Daily quota cap of 1GB on `law-platform` protects against unexpected ingestion cost spikes.
 
+### Backup & Disaster Recovery
+
+A Recovery Services Vault (`rsv-platform`) in `rg-platform-management` provides the backup infrastructure. A daily VM backup policy (bkpol-vm-daily) is provisioned and ready — no VMs are currently registered to it, so cost is $0. Infrastructure defined in Terraform has a built-in DR story: terraform apply rebuilds it. The vault exists for workload data that Terraform cannot recover.
+Terraform state files are protected by three independent mechanisms: blob versioning (recovers overwritten state on every apply), container soft delete (recovers accidentally deleted containers within 7 days), and a CanNotDelete resource lock on `rg-tfstate` that survives Contributor-level access.
+
 ### Identity & Authentication
 
-No stored secrets anywhere. GitHub Actions authenticates to Azure via OIDC federated credentials. The platform/identity/github-oidc module manages all workload service principals using for_each — the platform is the gatekeeper for what repositories get Azure access and at what scope.
+No stored secrets anywhere. GitHub Actions authenticates to Azure via OIDC federated credentials. The `platform/identity/github-oidc` module manages all workload service principals using `for_each` — the platform is the gatekeeper for what repositories get Azure access and at what scope.
 
 #Current Service Principals Managed by This Module
 
-| Repository         | Scope                                                                   | Role                |
-| ------------------ | ----------------------------------------------------------------------- | ------------------- |
-| azure-landing-zone | rg-platform-connectivity, rg-workloads, rg-data, rg-platform-management | Contributor         |
-| taskflow-platform  | rg-taskflow                                                             | Contributor         |
-| taskflow-platform  | snet-aks                                                                | Network Contributor |
+| Repository         | Scope                                                                   | Role                          |
+| ------------------ | ----------------------------------------------------------------------- | ----------------------------- |
+| azure-landing-zone | rg-platform-connectivity, rg-workloads, rg-data, rg-platform-management | Contributor                   |
+| azure-landing-zone | rg-tfstate                                                              | Storage Blob Data Contributor |
+| azure-landing-zone | rg-tfstate                                                              | Reader                        |
+| taskflow-platform  | rg-taskflow                                                             | Contributor                   |
+| taskflow-platform  | rg-workloads                                                            | Network Contributor           |
+| taskflow-platform  | rg-tfstate                                                              | Reader                        |
+| taskflow-platform  | privatelink.vaultcore.azure.net (DNS zone in rg-platform-connectivity)  | Private DNS Zone Contributor  |
 
 Adding a new workload repository requires a new entry in `terraform.tfvars` and RBAC defined in `rbac.tf`. The platform team controls it. The workload team consumes it.
 
@@ -188,7 +209,7 @@ Adding a new workload repository requires a new entry in `terraform.tfvars` and 
 ### How It Works
 
 ```
-PR opened touching platform/\*\*
+PR opened touching platform/**
 │
 ▼
 Detect changed modules → terraform-modules.json
@@ -210,11 +231,14 @@ Weekly Drift Detection — all modules
 │ Non-empty plan → GitHub issue opened automatically
 ```
 
+### Module Registry
+
 All platform modules are ci_enabled: false. The pipeline plans and detects drift — it never auto-applies platform changes. Platform infrastructure changes require explicit human review and manual apply.
 
 ### Design Decisions
 
-NVA over Azure Firewall — cost and routing visibility. The NVA handles east-west spoke-to-spoke traffic only. AKS internet egress uses NAT Gateway, not the NVA, to avoid a single point of failure on the cluster's control plane path.
+NVA over Azure Firewall — cost and routing visibility. The NVA handles east-west spoke-to-spoke traffic only via UDRs on both spoke route tables, preventing asymmetric routing. AKS internet egress uses NAT Gateway, not the NVA, to avoid a single point of failure on the cluster's control plane path.
+
 Manual apply for platform modules — platform changes are sensitive. Connectivity, governance, and identity mistakes are hard to recover from. Speed is not the priority here.
 
 Landing zone pattern for workloads — platform/connectivity provisions empty resource groups for each workload. The workload repo deploys into the RG it has been handed. This maintains a clean `platform/workload` boundary and prevents workload pipelines from needing access to platform resource groups.
@@ -232,7 +256,7 @@ This project runs on a $20/month budget. Workloads are deployed for learning, va
 | Recovery Services Vault   | No cost until a VM is registered | $0            |
 | **Total**                 |                                  | **~$2/month** |
 
-Budget alerts configured at subscription ($20) and resource group ($15) level — email notifications at 50%, 80%, 100% actual and forecasted thresholds.
+Budget alerts are configured at subscription ($20) and `rg-taskflow` ($15) scope — email notifications at 50%, 80%, 100% actual and a forecasted threshold that warns before the limit lands. The forecasted threshold is the most operationally useful for ephemeral workloads like AKS.
 
 Destroying workloads after validation is intentional — demonstrates cost-aware engineering and keeps focus on the platform layer where the durable value is.
 
