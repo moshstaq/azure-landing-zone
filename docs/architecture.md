@@ -21,7 +21,7 @@ graph TD
     MG --> WORK
     WORK --> SUB
 
-    POL1["🔒 Policy: Require environment tag\n(Deny)"]
+    POL1["🔒 Policy: Require environment tag\n(Audit)"]
     POL2["🔒 Policy: Allowed locations\n(Deny)"]
     POL3["🔧 Policy: Activity Log forwarding\n(DeployIfNotExists)"]
 
@@ -34,7 +34,7 @@ graph TD
     style PLAT fill:#0078D4,color:#fff,stroke:#005a9e
     style WORK fill:#0078D4,color:#fff,stroke:#005a9e
     style SUB fill:#50e6ff,stroke:#0078D4
-    style POL1 fill:#d13438,color:#fff,stroke:#a4262c
+    style POL1 fill:#f7630c,color:#fff,stroke:#c45000
     style POL2 fill:#d13438,color:#fff,stroke:#a4262c
     style POL3 fill:#107c10,color:#fff,stroke:#0a5c0a
 ```
@@ -48,29 +48,33 @@ The hub VNet is owned by the platform team. Spoke VNets are owned by landing zon
 ```mermaid
 graph TB
     subgraph HUB["🌐 Hub VNet — 10.0.0.0/16 (rg-platform-connectivity)"]
-        SHARED["snet-shared\n10.0.1.0/24"]
+        SHARED["snet-shared-services\n10.0.1.0/24"]
+        APPGW["snet-appgw\n10.0.2.0/24"]
+        NVA["snet-nva\n10.0.3.0/28"]
     end
 
-    subgraph SPOKE["📦 Spoke VNet — 10.1.0.0/16 (rg-app-dev)"]
-        APP["snet-app\n10.1.1.0/24"]
-        DATA["snet-data\n10.1.2.0/24"]
+    subgraph WORKLOADS["📦 Workloads Spoke — 10.1.0.0/16 (rg-workloads)"]
+        COMPUTE["snet-compute\n10.1.1.0/24"]
         CONTAINERS["snet-containers\n10.1.3.0/24"]
         AKS["snet-aks\n10.1.4.0/22"]
     end
 
-    HUB <-->|"VNet Peering\n(bi-directional)"| SPOKE
+    subgraph DATA["🗄️ Data Spoke — 10.2.0.0/16 (rg-data)"]
+        DATA_SUBNETS["Subnets provisioned\non demand (PaaS / PE)"]
+    end
 
-    NSG_HUB["🛡️ NSG\nnsg-hub-shared"]
-    NSG_CONTAINERS["🛡️ NSG\nnsg-app-dev-containers"]
-    NSG_AKS["🛡️ NSG\nnsg-app-dev-aks"]
+    HUB <-->|"VNet Peering\n(bi-directional)"| WORKLOADS
+    HUB <-->|"VNet Peering\n(bi-directional)"| DATA
 
-    SHARED --- NSG_HUB
+    NSG_CONTAINERS["🛡️ NSG\nnsg-containers"]
+    NSG_AKS["🛡️ NSG\nnsg-aks"]
+
     CONTAINERS --- NSG_CONTAINERS
     AKS --- NSG_AKS
 
     style HUB fill:#e6f3ff,stroke:#0078D4
-    style SPOKE fill:#e6ffe6,stroke:#107c10
-    style NSG_HUB fill:#fff4ce,stroke:#f7630c
+    style WORKLOADS fill:#e6ffe6,stroke:#107c10
+    style DATA fill:#fff4ce,stroke:#f7630c
     style NSG_CONTAINERS fill:#fff4ce,stroke:#f7630c
     style NSG_AKS fill:#fff4ce,stroke:#f7630c
 ```
@@ -79,32 +83,28 @@ graph TB
 
 ## Terraform State Architecture
 
-Each module owns an isolated state file. Cross-module references use `terraform_remote_state` data sources — resource IDs flow between modules without hardcoding.
+Each module owns an isolated state file. Cross-module references use `terraform_remote_state` data sources — resource IDs flow between modules without hardcoding. Arrows show the direction of the dependency (the module at the tail reads from the module at the head).
 
 ```mermaid
 graph LR
     subgraph STORAGE["💾 sttfstate7tcl (rg-tfstate)"]
         BS["platform/bootstrap"]
-        CONN["platform/connectivity"]
         MGMT["platform/management"]
+        CONN["platform/connectivity"]
         GOV["platform/governance"]
-        OIDC["platform/identity"]
-        NET["landing-zones/app-dev/networking"]
-        WL["landing-zones/app-dev/workloads"]
+        OIDC["platform/identity/github-oidc"]
     end
 
-    CONN -->|"hub_vnet_id\nhub_vnet_name"| NET
-    MGMT -->|"law_workspace_id\naction_group_id"| WL
-    NET -->|"spoke_vnet_id\nsnet_app_id\nlocation\nresource_group_name"| WL
+    MGMT -->|"law_workspace_id"| CONN
+    CONN -->|"private_dns_zone_kv_id"| OIDC
 
     style STORAGE fill:#f0f0f0,stroke:#999
-    style CONN fill:#0078D4,color:#fff
     style MGMT fill:#0078D4,color:#fff
-    style NET fill:#107c10,color:#fff
-    style WL fill:#107c10,color:#fff
+    style CONN fill:#0078D4,color:#fff
+    style OIDC fill:#0078D4,color:#fff
 ```
 
-> Each arrow represents a `terraform_remote_state` data source. A failed workload deploy cannot corrupt platform state.
+> `platform/connectivity` reads `law_workspace_id` from `platform/management` to configure NSG diagnostic settings. `platform/identity/github-oidc` reads `private_dns_zone_kv_id` from `platform/connectivity` to create the DNS zone RBAC assignment for `taskflow-platform`. This means management must be applied before connectivity, and connectivity before identity.
 
 ---
 
@@ -126,17 +126,18 @@ sequenceDiagram
     AAD->>GH: Return access token<br/>(short-lived, scoped)
 
     GH->>ARM: API calls with access token
-    ARM->>ARM: Validate RBAC<br/>(Contributor on resource groups)
+    ARM->>ARM: Validate RBAC<br/>(scoped to resource groups)
     ARM->>GH: Response
 ```
 
 ### Federated Credential Subjects
 
-| Credential                      | Subject Claim                  | Workflow            |
-| ------------------------------- | ------------------------------ | ------------------- |
-| `github-main-branch`            | `ref:refs/heads/main`          | Direct push applies |
-| `github-pull-requests`          | `pull_request`                 | PR plan jobs        |
-| `github-environment-production` | `environment:azure-production` | Gated apply jobs    |
+Two credentials are configured per repository — one for each distinct GitHub event type:
+
+| Credential             | Subject Claim         | Workflow            |
+| ---------------------- | --------------------- | ------------------- |
+| `github-main-branch`   | `ref:refs/heads/main` | Direct push applies |
+| `github-pull-requests` | `pull_request`        | PR plan jobs        |
 
 A token issued for a PR plan job **cannot** be used to trigger an apply — the subject claims don't match. This is enforced by Azure AD, not by workflow logic.
 
@@ -155,7 +156,7 @@ flowchart TD
 
     MATRIX_PLAN --> P1["plan: platform/connectivity"]
     MATRIX_PLAN --> P2["plan: platform/management"]
-    MATRIX_PLAN --> P3["plan: landing-zones/app-dev/networking"]
+    MATRIX_PLAN --> P3["plan: platform/governance"]
 
     P1 --> ART["📦 Upload Plan Artifacts"]
     P2 --> ART
@@ -165,15 +166,12 @@ flowchart TD
     COMMENT --> REVIEW["👀 Peer Review"]
     REVIEW --> MERGE["✅ Merge to Main"]
 
-    MERGE --> MATRIX_APPLY["🚀 Matrix Apply\nSequential — dependency order"]
-    MATRIX_APPLY --> A1["apply: platform/connectivity"]
-    A1 --> A2["apply: platform/management"]
-    A2 --> A3["apply: landing-zones/app-dev/networking"]
+    MERGE --> NOTE["⚠️ All platform modules ci_enabled: false\nNo auto-apply — manual terraform apply required"]
 
     DRIFT["🕵️ Drift Detection\nWeekly Scheduled"]
     DRIFT --> PLAN_ALL["terraform plan — all modules"]
     PLAN_ALL --> DIFF{"Non-empty\nplan?"}
-    DIFF -->|Yes| ALERT["🚨 Workflow Fails\nAlert triggered"]
+    DIFF -->|Yes| ALERT["🚨 GitHub Issue Opened\nautomatically"]
     DIFF -->|No| OK["✅ No drift detected"]
 
     style PR fill:#0078D4,color:#fff
@@ -181,6 +179,7 @@ flowchart TD
     style ALERT fill:#d13438,color:#fff
     style OK fill:#107c10,color:#fff
     style DRIFT fill:#8764b8,color:#fff
+    style NOTE fill:#fff4ce,stroke:#f7630c
 ```
 
 ---
@@ -191,12 +190,11 @@ flowchart TD
 graph TB
     subgraph SOURCES["📡 Log Sources"]
         ACT["Azure Activity Logs\n(all subscriptions)"]
-        NSG_FLOW["NSG Flow Logs\n(hub + spoke)"]
-        CA["Container Apps\ntelemetry"]
+        NSG_FLOW["NSG Flow Logs\n(workloads spoke NSGs)"]
     end
 
     subgraph PLATFORM["🔍 law-platform (rg-platform-management)"]
-        LAW["Log Analytics Workspace"]
+        LAW["Log Analytics Workspace\n1GB daily cap"]
     end
 
     subgraph ALERTS["🚨 Scheduled Query Alerts (KQL)"]
@@ -207,9 +205,8 @@ graph TB
 
     AG["📧 ag-platform-alerts\nAction Group\n(email)"]
 
-    ACT -->|"Policy: DeployIfNotExists\nauto-configured"| LAW
-    NSG_FLOW --> LAW
-    CA -->|"Workspace ID\nfrom remote state"| LAW
+    ACT -->|"Subscription diagnostic setting\n(activity-logs.tf)"| LAW
+    NSG_FLOW -->|"NSG diagnostic settings\n(diagnostics.tf)"| LAW
 
     LAW --> A1
     LAW --> A2
@@ -230,14 +227,14 @@ graph TB
 
 ## Resource Group Layout
 
-| Resource Group             | Tier         | Purpose                              | Lifecycle                                 |
-| -------------------------- | ------------ | ------------------------------------ | ----------------------------------------- |
-| `rg-tfstate`               | Platform     | Terraform remote state storage       | Permanent                                 |
-| `rg-platform-connectivity` | Platform     | Hub VNet, NSGs                       | Permanent                                 |
-| `rg-platform-management`   | Platform     | Log Analytics, Action Groups, Alerts | Permanent                                 |
-| `rg-app-dev`               | Landing Zone | Spoke VNet, workload compute         | Permanent (infra) / Ephemeral (workloads) |
-
-Workloads within `rg-app-dev` are deployed to learn and destroyed after validation. The networking and governance infrastructure in the same RG remains permanent.
+| Resource Group             | Tier         | Purpose                                | Lifecycle                                   |
+| -------------------------- | ------------ | -------------------------------------- | ------------------------------------------- |
+| `rg-tfstate`               | Platform     | Terraform remote state storage         | Permanent                                   |
+| `rg-platform-connectivity` | Platform     | Hub VNet, spokes, NSGs, NVA, DNS zones | Permanent                                   |
+| `rg-platform-management`   | Platform     | Log Analytics, alerts, backup, budgets | Permanent                                   |
+| `rg-workloads`             | Landing Zone | Workloads spoke VNet and subnets       | Permanent                                   |
+| `rg-data`                  | Landing Zone | Data spoke VNet                        | Permanent                                   |
+| `rg-taskflow`              | Landing Zone | Empty boundary for taskflow-platform   | Permanent (boundary) / Ephemeral (contents) |
 
 ---
 
@@ -245,7 +242,7 @@ Workloads within `rg-app-dev` are deployed to learn and destroyed after validati
 
 ### Why hub-spoke over a flat VNet?
 
-Spoke VNets are independently managed — the app-dev team controls their address space, subnets, and NSGs without touching platform networking. Adding a second landing zone is a new spoke, not a change to existing infrastructure. The hub provides a single point for shared services (DNS, monitoring, future firewall).
+Spoke VNets are independently managed — the workloads team controls their address space, subnets, and NSGs without touching platform networking. Adding a second landing zone is a new spoke, not a change to existing infrastructure. The hub provides a single point for shared services and NVA-enforced inter-spoke routing.
 
 ### Why modular state over a single backend?
 
@@ -253,8 +250,12 @@ A monolithic state file means any Terraform operation locks the entire infrastru
 
 ### Why OIDC over service principal secrets?
 
-Secrets rotate, get leaked, and require management overhead. OIDC federated credentials are bound to specific GitHub subjects (branch, PR, environment) and issued as short-lived tokens. There is no credential to leak because no credential is stored.
+Secrets rotate, get leaked, and require management overhead. OIDC federated credentials are bound to specific GitHub subjects (branch, PR) and issued as short-lived tokens. There is no credential to leak because no credential is stored.
 
 ### Why sequential apply but parallel plan?
 
-Plan operations are read-only against the Azure API and idempotent — parallelising them is safe and speeds up PR feedback. Apply operations have ordering dependencies (connectivity must exist before networking modules can read its state outputs), so sequential execution with explicit ordering prevents race conditions.
+Plan operations are read-only against the Azure API and idempotent — parallelising them is safe and speeds up PR feedback. Apply operations have ordering dependencies (management must exist before connectivity can read its state outputs), so sequential execution with explicit ordering prevents race conditions.
+
+### Why all platform modules have ci_enabled: false?
+
+Platform infrastructure is sensitive. Auto-applying connectivity, governance, or identity changes could have wide blast radius — a misconfigured NSG affects all spokes, an identity mistake could lock the pipeline out of itself. Manual apply forces human review of every platform change. Speed is not the priority here.
