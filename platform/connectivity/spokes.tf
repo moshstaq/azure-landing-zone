@@ -73,6 +73,12 @@ resource "azurerm_virtual_network" "data" {
   tags = local.common_tags
 }
 
+resource "azurerm_subnet" "data_services" {
+  name                 = "snet-data-services"
+  resource_group_name  = azurerm_resource_group.data.name
+  virtual_network_name = azurerm_virtual_network.data.name
+  address_prefixes     = ["10.2.0.0/24"]
+}
 
 
 

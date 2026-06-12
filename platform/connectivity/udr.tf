@@ -26,6 +26,15 @@ resource "azurerm_subnet_route_table_association" "compute" {
   subnet_id      = azurerm_subnet.workload_compute.id
   route_table_id = azurerm_route_table.workload.id
 }
+resource "azurerm_subnet_route_table_association" "containers" {
+  subnet_id      = azurerm_subnet.containers.id
+  route_table_id = azurerm_route_table.workload.id
+}
+
+resource "azurerm_subnet_route_table_association" "aks" {
+  subnet_id      = azurerm_subnet.aks.id
+  route_table_id = azurerm_route_table.workload.id
+}
 
 # ── Data Spoke UDR ────────────────────────────────────────────────────────────
 # Return path — forces responses from data subnet back through NVA
@@ -51,3 +60,7 @@ resource "azurerm_route_table" "data" {
   }
 }
 
+resource "azurerm_subnet_route_table_association" "data" {
+  subnet_id      = azurerm_subnet.data_services.id
+  route_table_id = azurerm_route_table.data.id
+}

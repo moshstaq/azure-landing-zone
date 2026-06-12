@@ -98,6 +98,7 @@ output "nva_private_ip" {
   value       = "10.0.3.4"
 }
 
+/*
 output "private_dns_zone_kv_rg" {
   description = "Resource group containing the ephemeral Key Vault private DNS zone."
   value       = azurerm_resource_group.connectivity.name
@@ -106,4 +107,10 @@ output "private_dns_zone_kv_rg" {
 output "private_dns_zone_kv_id" {
   description = "Resource ID of the ephemeral Key Vault private DNS zone."
   value       = azurerm_private_dns_zone.kv.id
+}
+*/
+
+output "snet_data_services_id" {
+  description = "ID of the data services subnet"
+  value       = azurerm_subnet.data_services.id
 }
