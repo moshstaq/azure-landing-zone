@@ -286,9 +286,9 @@ After step 2, subsequent deployments run automatically via GitHub Actions on PR 
 
 ## Related Repositories
 
-| Repository          | Purpose                                                                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------- |
-| `taskflow-platform` | EContainerised task processing platform on AKS. Consumes platform networking via remote state. |
+| Repository                                                           | Purpose                                                                                                                                                                                               |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`taskflow-platform`](https://github.com/moshstaq/taskflow-platform) | Containerised task processing platform on AKS. Consumes platform outputs via [`data.terraform_remote_state.connectivity`](https://github.com/moshstaq/taskflow-platform/terraform/foundation/main.tf) |
 
 ## Author
 
