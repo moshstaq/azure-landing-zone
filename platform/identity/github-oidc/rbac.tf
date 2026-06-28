@@ -4,8 +4,6 @@
 # on every RG it provisions resources into
 # -----------------------------------------------------
 
-data "azurerm_subscription" "current" {}
-
 resource "azurerm_role_assignment" "landing_zone_connectivity" {
   scope                = data.azurerm_resource_group.connectivity.id
   role_definition_name = "Contributor"
@@ -54,15 +52,17 @@ resource "azurerm_role_assignment" "landing_zone_cost_management_reader" {
   principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
 }
 
+resource "azurerm_role_assignment" "landing_zone_management_group_reader" {
+  scope                = "/providers/Microsoft.Management/managementGroups/moshstaq"
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
+}
 
 # -----------------------------------------------------
 # taskflow-platform SP
 # Contributor on rg-taskflow for all workload resources
 # Network Contributor on the workloads Vnet and subnets
 # -----------------------------------------------------
-
-
-
 
 
 resource "azuread_application_federated_identity_credential" "environment_production" {

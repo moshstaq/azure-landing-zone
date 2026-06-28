@@ -18,12 +18,4 @@ output "taskflow_object_id" {
   value       = azuread_service_principal.github_actions["taskflow-platform"].object_id
 }
 
-output "tenant_id" {
-  description = "Azure AD tenant ID"
-  value       = var.tenant_id
-}
 
-output "subscription_id" {
-  description = "Subscription ID"
-  value       = var.subscription_id
-}
