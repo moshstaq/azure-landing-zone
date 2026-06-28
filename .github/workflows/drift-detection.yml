@@ -29,8 +29,6 @@ jobs:
             path: platform/connectivity
           - name: platform-management
             path: platform/management
-          - name: platform-governance
-            path: platform/governance
           - name: platform-github-oidc
             path: platform/identity/github-oidc
     steps:
