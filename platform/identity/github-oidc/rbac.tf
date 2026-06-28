@@ -3,6 +3,9 @@
 # Manages all platform modules — needs Contributor
 # on every RG it provisions resources into
 # -----------------------------------------------------
+
+data "azurerm_subscription" "current" {}
+
 resource "azurerm_role_assignment" "landing_zone_connectivity" {
   scope                = data.azurerm_resource_group.connectivity.id
   role_definition_name = "Contributor"
@@ -38,6 +41,19 @@ resource "azurerm_role_assignment" "landing_zone_tfstate_reader" {
   role_definition_name = "Reader"
   principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
 }
+
+resource "azurerm_role_assignment" "landing_zone_monitoring_reader" {
+  scope                = data.azurerm_subscription.current.id
+  role_definition_name = "Monitoring Reader"
+  principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
+}
+
+resource "azurerm_role_assignment" "landing_zone_cost_management_reader" {
+  scope                = data.azurerm_subscription.current.id
+  role_definition_name = "Cost Management Reader"
+  principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
+}
+
 
 # -----------------------------------------------------
 # taskflow-platform SP
