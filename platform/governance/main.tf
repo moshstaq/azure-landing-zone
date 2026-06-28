@@ -8,11 +8,6 @@ data "azurerm_management_group" "root" {
 #---------------------------------------------------------
 # RBAC: Management Group for Policy Assignment
 #---------------------------------------------------------
-resource "azurerm_role_assignment" "landing_zone_management_group_reader" {
-  scope                = data.azurerm_management_group.root.id
-  role_definition_name = "Reader"
-  principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
-}
 
 #---------------------------------------------------------
 # Policy 1: Require Environment Tag on Resource Groups
