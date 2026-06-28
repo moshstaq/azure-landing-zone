@@ -2,7 +2,16 @@
 # Data Source: Management Group for Policy Assignment
 #---------------------------------------------------------
 data "azurerm_management_group" "root" {
-  name = var.management_group_name
+  name = "moshstaq"
+}
+
+#---------------------------------------------------------
+# RBAC: Management Group for Policy Assignment
+#---------------------------------------------------------
+resource "azurerm_role_assignment" "landing_zone_management_group_reader" {
+  scope                = data.azurerm_management_group.root.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
 }
 
 #---------------------------------------------------------

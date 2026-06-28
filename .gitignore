@@ -37,3 +37,8 @@ Thumbs.db
 *.tfstate.*
 .terraform/
 *.bak
+
+*.tfvars
+!platform/management/terraform.tfvars
+!platform/governance/terraform.tfvars
+!platform/identity/github-oidc/terraform.tfvars
