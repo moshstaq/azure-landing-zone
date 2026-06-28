@@ -9,6 +9,7 @@ resource "azurerm_recovery_services_vault" "platform" {
   location            = azurerm_resource_group.management.location
   resource_group_name = azurerm_resource_group.management.name
   sku                 = "Standard"
+  soft_delete_enabled = false
 
 
   # Immutability — prevents backup data modification

@@ -9,7 +9,7 @@ data "azurerm_subscription" "budget" {}
 # ─────────────────────────────────────────────────────
 
 locals {
-  budget_start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+  budget_start_date = "2026-06-01T00:00:00Z"
 }
 resource "azurerm_consumption_budget_subscription" "monthly" {
   name            = "budget-sub-monthly"

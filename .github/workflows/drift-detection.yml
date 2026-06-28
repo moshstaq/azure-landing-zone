@@ -29,8 +29,12 @@ jobs:
             path: platform/connectivity
           - name: platform-management
             path: platform/management
+<<<<<<< HEAD
           - name: platform-github-oidc
             path: platform/identity/github-oidc
+=======
+
+>>>>>>> 779f456 (fix: remove identity and governance from ci)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
