@@ -1,3 +1,6 @@
+data "azurerm_management_group" "root" {
+  name = var.management_group_id
+}
 
 
 # -----------------------------------------------------
@@ -55,7 +58,7 @@ resource "azurerm_role_assignment" "landing_zone_cost_management_reader" {
 }
 
 resource "azurerm_role_assignment" "landing_zone_management_group_reader" {
-  scope                = "/providers/Microsoft.Management/managementGroups/moshstaq"
+  scope                = data.azurerm_management_group.root.id
   role_definition_name = "Reader"
   principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
 }
@@ -105,4 +108,38 @@ resource "azurerm_role_assignment" "landing_zone_taskflow_reader" {
   scope                = data.azurerm_resource_group.taskflow.id
   role_definition_name = "Reader"
   principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
+}
+
+# -----------------------------------------------------
+# Stratum-platform SP
+# -----------------------------------------------------
+# In rbac.tf — add these role assignments for stratum-platform SP
+resource "azurerm_role_assignment" "stratum_platform_workloads_contributor" {
+  scope                = data.azurerm_resource_group.workloads.id
+  role_definition_name = "Contributor"
+  principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
+}
+
+resource "azurerm_role_assignment" "stratum_platform_connectivity_reader" {
+  scope                = data.azurerm_resource_group.connectivity.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
+}
+
+resource "azurerm_role_assignment" "stratum_platform_management_reader" {
+  scope                = data.azurerm_resource_group.management.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
+}
+
+resource "azurerm_role_assignment" "stratum_platform_tfstate_blob" {
+  scope                = data.azurerm_resource_group.tfstate.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
+}
+
+resource "azurerm_role_assignment" "stratum_platform_tfstate_reader" {
+  scope                = data.azurerm_resource_group.tfstate.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
 }

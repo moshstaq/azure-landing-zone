@@ -1,3 +1,8 @@
+variable "management_group_id" {
+  description = "Root management group ID"
+  type        = string
+}
+
 
 variable "github_org" {
   description = "GitHub organization or username"
