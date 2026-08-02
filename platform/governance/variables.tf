@@ -1,7 +1,7 @@
 variable "management_group_name" {
   description = "Root management group where policies will be assigned"
   type        = string
-  default     = "moshstaq"
+  default     = "4a260337-4a58-4c03-b6ac-75b5cc0de325"
 }
 
 variable "allowed_locations" {

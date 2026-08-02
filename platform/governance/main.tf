@@ -2,7 +2,7 @@
 # Data Source: Management Group for Policy Assignment
 #---------------------------------------------------------
 data "azurerm_management_group" "root" {
-  name = "moshstaq"
+  name = var.management_group_name
 }
 
 #---------------------------------------------------------
