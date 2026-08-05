@@ -143,3 +143,9 @@ resource "azurerm_role_assignment" "stratum_platform_tfstate_reader" {
   role_definition_name = "Reader"
   principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
 }
+
+resource "azurerm_role_assignment" "stratum_platform_taskflow_reader" {
+  scope                = data.azurerm_resource_group.taskflow.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions["stratum-platform"].object_id
+}

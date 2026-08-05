@@ -19,3 +19,7 @@ output "taskflow_object_id" {
 }
 
 
+output "stratum_platform_client_id" {
+  description = "Client ID for the stratum-platform GitHub Actions SP"
+  value       = azuread_application.github_actions["stratum-platform"].client_id
+}
