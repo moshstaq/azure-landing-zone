@@ -1,6 +1,6 @@
 # Azure Landing Zone
 
-Production-pattern Azure platform foundation built with Terraform, implementing hub-spoke networking, centralised observability, secretless CI/CD authentication, and a governed identity model for workload repositories. This repository owns the platform layer only — it never deploys application workloads.
+Azure platform foundation built with Terraform. Hub-spoke networking with forced tunnelling through a hub NVA, centralised observability, secretless CI/CD authentication, and a governed identity model for workload repositories. This repository owns the platform layer only — it never deploys application workloads.`
 
 [![Terraform](https://img.shields.io/badge/Terraform-1.5+-623CE4?logo=terraform)](https://terraform.io)
 [![Azure](https://img.shields.io/badge/Azure-Landing%20Zone-0078D4?logo=microsoft-azure)](https://azure.microsoft.com)
@@ -11,10 +11,9 @@ Production-pattern Azure platform foundation built with Terraform, implementing 
 
 ## What This Is
 
-A production-pattern Azure platform built from scratch — not a template. Every resource is defined in Terraform,every deployment authenticates via OIDC with no stored secrets, and every design decision is documented in an Architecture Decision Record.
+Every resource is defined in Terraform, every deployment authenticates via OIDC with no stored secrets, and every design decision is recorded in an ADR.
 
-This repository owns: hub-spoke networking, Azure Policy governance, centralised observability, secretless CI/CD identity, and workload landing zones. What does not live here: application workloads, container
-deployments, AKS clusters, or any compute that serves an application. Those live in workload repositories that consume this platform's outputs via azurerm data sources.
+This repository owns: hub-spoke networking, Azure Policy governance, centralised observability, secretless CI/CD identity, and workload landing zones. What does not live here: application workloads, container deployments, AKS clusters, or any compute that serves an application. Those live in workload repositories that consume this platform's outputs. How they consume them changed over time, see Terraform State Strategy below.
 
 ---
 
@@ -135,8 +134,11 @@ All cross-spoke traffic routes through the hub NVA via UDRs on both spoke route 
 
 ### Terraform State Strategy
 
-Each module owns an isolated state file in Azure Blob Storage. Modules reference cross-tier outputs via `terraform_remote_state` data sources within this repository. Workload repositories consume platform outputs
-via `azurerm` data sources — never via remote state. This keeps state file contents private and safe for consumption from public repositories.
+Each module owns an isolated state file in Azure Blob Storage. Modules reference cross-tier outputs via `terraform_remote_state` data sources within this repository, where state access is controlled and the consumer is not a separate repo.
+
+Cross-repository consumption is a different problem. A state file holds every attribute of every managed resource, including values marked `sensitive`, so a public workload repository granted read access to platform state exposes the whole platform inventory to get at three resource IDs. stratum-platform therefore consumes this platform through `azurerm` data sources only, which resolve the same values and fail at plan time if the resource is missing.
+
+taskflow-platform predates that decision and reads `platform-connectivity.tfstate` and `platform-management`.tfstate directly. It is superseded rather than maintained, so the pattern is recorded here rather than reworked. The reasoning is in stratum-platform ADR-001.
 
 ```
 tfstate/
@@ -150,10 +152,6 @@ tfstate/
 
 State are protected by blob versioning, soft delete, and a `CanNotDelete` resource lock on `rg-tfstate`.
 
----
-
----
-
 ## Platform Modules
 
 ### bootstrap — Tier 0
@@ -164,8 +162,7 @@ Provisions the remote state storage account, container, versioning, soft delete,
 
 Owns all network topology: hub VNet, spoke VNets, subnets, NSGs, UDRs, VNet peerings, and NSG diagnostic settings. Also provisions workload landing zone resource groups — `rg-workloads`, `rg-data`, and `rg-taskflow` — as empty boundaries for workload repositories to deploy into.
 
-The NVA subnet is declared here with no NSG attached. Traffic policy
-on that subnet is enforced at the OS level on the NVA appliance.
+The NVA subnet is declared here with no NSG attached. Traffic policy on that subnet is enforced at the OS level on the NVA appliance.
 
 Key files:
 
@@ -193,23 +190,15 @@ Key files:
 
 ### governance — Tier 2 — Manual Only
 
-Manages Azure Policy definitions and assignments at management group scope. Three policies are assigned at the `moshstaq` management group and propagate automatically to all child subscriptions:
+Manages Azure Policy definitions and assignments at management group scope. Three policies are assigned at the `moshstaq` management group and propagate automatically to all child subscriptions: effects and scoping are documented under Platform Services below.
 
-| Policy                    | Effect            | Purpose                          |
-| ------------------------- | ----------------- | -------------------------------- |
-| Require `Environment` tag | Audit             | Flags untagged resource groups   |
-| Allowed locations         | Deny              | Restricts deployments to eastus2 |
-| Activity Log forwarding   | DeployIfNotExists | Auto-configures audit logging    |
-
-This module is excluded from automated CI. It operates at management group scope, which requires privileges that exceed the least-privilege boundary for a CI service principal. Changes require manual apply by an operator with User Access Administrator at management group scope.
-See `docs/adr/ADR-003-workload-identity.md`.
+This module is excluded from automated CI. It operates at management group scope, which requires privileges that exceed the least-privilege boundary for a CI service principal. Changes require manual apply by an operator with User Access Administrator at management group scope. See `docs/adr/ADR-003-workload-identity.md`.
 
 ### identity/github-oidc — Tier 2 — Manual Only
 
 Manages all GitHub Actions service principals using `for_each` over a `repos` variable. The platform controls what repositories get Azure access and at what scope. Adding a new workload repository requires a new entry in `terraform.tfvars` and corresponding RBAC in `rbac.tf`.
 
-This module is excluded from automated CI. It manages AAD application registrations and requires Microsoft Graph `Application.Read.All` permission, which represents unacceptable privilege escalation for an automated pipeline. Changes require manual apply by an operator withsufficient Graph permissions.
-See `docs/adr/ADR-003-workload-identity.md`.
+This module is excluded from automated CI. It manages AAD application registrations and requires Microsoft Graph `Application.Read.All` permission, which represents unacceptable privilege escalation for an automated pipeline. Changes require manual apply by an operator withsufficient Graph permissions. See `docs/adr/ADR-003-workload-identity.md`.
 
 #### Current Service Principals
 
@@ -238,11 +227,11 @@ See `docs/adr/ADR-003-workload-identity.md`.
 
 Three policies applied at management group scope — they propagate automatically to all child subscriptions:
 
-| Policy                    | Effect            | Purpose                        |
-| ------------------------- | ----------------- | ------------------------------ |
-| Require `environment` tag | Deny              | Prevents untagged resources    |
-| Allowed locations         | Deny              | Locks deployments to `eastus2` |
-| Activity Log forwarding   | DeployIfNotExists | Auto-configures audit logging  |
+| Policy                    | Effect            | Purpose                          |
+| ------------------------- | ----------------- | -------------------------------- |
+| Require `Environment` tag | Audit             | Flags untagged resource groups   |
+| Allowed locations         | Deny              | Restricts deployments to eastus2 |
+| Activity Log forwarding   | DeployIfNotExists | Auto-configures audit logging    |
 
 The `DeployIfNotExists` effect is the most operationally significant — it auto-remediates non-compliant resources rather than just flagging them.
 
@@ -269,7 +258,7 @@ A Recovery Services Vault (`rsv-platform`) in `rg-platform-management` provides 
 
 ### Authentication
 
-All workflows authenticate via OIDC. The `ARM_USE_OIDC: true` and `ARM_USE_AZUREAD: true` environment variables are set at workflow level. No secrets are stored in GitHub beyond the client ID, tenant ID, and subscription ID — none of which are credentials.
+All workflows authenticate via OIDC. The `ARM_USE_OIDC: true` and `ARM_USE_AZUREAD: true` environment variables are set at workflow level. No secrets are stored in GitHub beyond the client ID, tenant ID, and subscription ID. None of which are credentials.
 
 ## CI/CD Pipeline
 
@@ -381,10 +370,11 @@ Full records in `docs/adr/`.
 
 ## Related Repositories
 
-| Repository                                                       | Purpose                                         |
-| ---------------------------------------------------------------- | ----------------------------------------------- |
-| [stratum-platform](https://github.com/moshstaq/stratum-platform) | Multi-cloud platform consumer — not yet created |
-| [aws-landing-zone](https://github.com/moshstaq/aws-landing-zone) | AWS platform foundation — not yet created       |
+| Repository Relationship                                            |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| [stratum-platform](https://github.com/moshstaq/stratum-platform)   | Multi-cloud platform consumer           |
+| [aws-landing-zone](https://github.com/moshstaq/aws-landing-zone)   | Sibling foundation on AWS               |
+| [taskflow-platform](https://github.com/moshstaq/taskflow-platform) | Workload onboarded on the azure-landing |
 
 ---
 
