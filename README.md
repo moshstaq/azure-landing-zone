@@ -370,7 +370,7 @@ Full records in `docs/adr/`.
 
 ## Related Repositories
 
-| Repository Relationship                                            |
+| Repository                                                         | Relationship                            |
 | ------------------------------------------------------------------ | --------------------------------------- |
 | [stratum-platform](https://github.com/moshstaq/stratum-platform)   | Multi-cloud platform consumer           |
 | [aws-landing-zone](https://github.com/moshstaq/aws-landing-zone)   | Sibling foundation on AWS               |
