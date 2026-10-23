@@ -107,6 +107,9 @@ resource "azurerm_policy_definition" "allowed_locations" {
   })
 }
 
+
+
+
 #---------------------------------------------------------
 # Policy Assignment: Allowed Locations
 #---------------------------------------------------------
@@ -120,6 +123,27 @@ resource "azurerm_management_group_policy_assignment" "allowed_locations" {
   parameters = jsonencode({
     allowedLocations = {
       value = var.allowed_locations
+    }
+  })
+}
+
+#---------------------------------------------------------
+# Policy Assignment: Audit Allowed Locations
+#---------------------------------------------------------
+resource "azurerm_management_group_policy_assignment" "auditing_locations" {
+  name                 = "audit-rg-locations"
+  display_name         = "Allowed locations for resource groups (audit mode)"
+  description          = "Review resource groups at the management group"
+  management_group_id  = data.azurerm_management_group.root.id
+  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/e765b5de-1225-4ba3-bd56-1ac6695af988"
+
+  parameters = jsonencode({
+    ListOfAllowedLocations = {
+      value = var.allowed_locations
+
+    }
+    effect = {
+      value = "Audit"
     }
   })
 }

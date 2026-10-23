@@ -103,3 +103,9 @@ output "snet_data_services_id" {
   description = "ID of the data services subnet"
   value       = azurerm_subnet.data_services.id
 }
+
+
+output "private_dns_zone_kv_id" {
+  description = "Resource ID of the platform Key Vault private DNS zone"
+  value       = azurerm_private_dns_zone.kv.id
+}
