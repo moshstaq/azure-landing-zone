@@ -13,7 +13,3 @@ output "diagnostic_settings_policy_id" {
   value       = azurerm_policy_definition.deploy_diag_activity_log.id
 }
 
-output "policy_identity_principal_id" {
-  description = "Principal ID of the policy managed identity"
-  value       = azurerm_management_group_policy_assignment.deploy_diag_activity_log.identity[0].principal_id
-}
