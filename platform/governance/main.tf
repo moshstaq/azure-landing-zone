@@ -174,8 +174,8 @@ resource "azurerm_management_group_policy_assignment" "require_tag_rg" {
 #---------------------------------------------------------
 resource "azurerm_policy_definition" "deploy_diag_activity_log" {
   name         = "deploy-activity-log-law"
-  display_name = "Deploy Activity Log diagnostics to Log Analytics"
-  description  = "Automatically configures Activity Log to stream to Log Analytics workspace"
+  display_name = "Audit Activity Log diagnostics to Log Analytics"
+  description  = "Audits that the subscription Activity Log streams to the Log Analytics workspace"
   policy_type  = "Custom"
   mode         = "All"
 
@@ -183,7 +183,7 @@ resource "azurerm_policy_definition" "deploy_diag_activity_log" {
 
   metadata = jsonencode({
     category = "Monitoring"
-    version  = "1.0.0"
+    version  = "2.0.0"
   })
 
   policy_rule = jsonencode({
@@ -192,11 +192,10 @@ resource "azurerm_policy_definition" "deploy_diag_activity_log" {
       equals = "Microsoft.Resources/subscriptions"
     }
     then = {
-      effect = "deployIfNotExists"
+      effect = "auditIfNotExists"
       details = {
-        type            = "Microsoft.Insights/diagnosticSettings"
-        deploymentScope = "subscription"
-        existenceScope  = "subscription"
+        type           = "Microsoft.Insights/diagnosticSettings"
+        existenceScope = "subscription"
         existenceCondition = {
           allOf = [
             {
@@ -205,54 +204,7 @@ resource "azurerm_policy_definition" "deploy_diag_activity_log" {
             }
           ]
         }
-        roleDefinitionIds = [
-          "/providers/Microsoft.Authorization/roleDefinitions/749f88d5-cbae-40b8-bcfc-e573ddc772fa",
-          "/providers/Microsoft.Authorization/roleDefinitions/92aaf0da-9dab-42b6-94a3-d43ce8d16293"
-        ]
-        deployment = {
-          location = "eastus2"
-          properties = {
-            mode = "incremental"
-            template = {
-              "$schema"      = "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#"
-              contentVersion = "1.0.0.0"
-              parameters = {
-                logAnalyticsWorkspaceId = {
-                  type = "string"
-                }
-              }
-              resources = [
-                {
-                  type       = "Microsoft.Insights/diagnosticSettings"
-                  apiVersion = "2021-05-01-preview"
-                  name       = "activity-log-to-law"
-                  properties = {
-                    workspaceId = "[parameters('logAnalyticsWorkspaceId')]"
-                    logs = [
-                      {
-                        category = "Administrative"
-                        enabled  = true
-                      },
-                      {
-                        category = "Security"
-                        enabled  = true
-                      },
-                      {
-                        category = "Policy"
-                        enabled  = true
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-            parameters = {
-              logAnalyticsWorkspaceId = {
-                value = "[parameters('logAnalyticsWorkspaceId')]"
-              }
-            }
-          }
-        }
+
       }
     }
   })
@@ -273,15 +225,12 @@ resource "azurerm_policy_definition" "deploy_diag_activity_log" {
 #---------------------------------------------------------
 resource "azurerm_management_group_policy_assignment" "deploy_diag_activity_log" {
   name                 = "deploy-activity-law"
-  display_name         = "Deploy Activity Log to Log Analytics"
-  description          = "Automatically configures subscription Activity Log diagnostics"
+  display_name         = "Audit Activity Log diagnostics to Log Analytics"
+  description          = "Audits that the subscription Activity Log streams to the Log Analytics workspace"
   management_group_id  = data.azurerm_management_group.root.id
   policy_definition_id = azurerm_policy_definition.deploy_diag_activity_log.id
-  location             = "eastus2"
 
-  identity {
-    type = "SystemAssigned"
-  }
+
 
   parameters = jsonencode({
     logAnalyticsWorkspaceId = {
@@ -291,19 +240,5 @@ resource "azurerm_management_group_policy_assignment" "deploy_diag_activity_log"
 }
 
 
-#---------------------------------------------------------
-# Role Assignment: Allow Policy to Deploy Diagnostic Settings
-#---------------------------------------------------------
-data "azurerm_subscription" "current" {}
 
-resource "azurerm_role_assignment" "policy_monitoring_contributor" {
-  scope                = data.azurerm_subscription.current.id
-  role_definition_name = "Monitoring Contributor"
-  principal_id         = azurerm_management_group_policy_assignment.deploy_diag_activity_log.identity[0].principal_id
-}
 
-resource "azurerm_role_assignment" "policy_law_contributor" {
-  scope                = data.azurerm_subscription.current.id
-  role_definition_name = "Log Analytics Contributor"
-  principal_id         = azurerm_management_group_policy_assignment.deploy_diag_activity_log.identity[0].principal_id
-}
