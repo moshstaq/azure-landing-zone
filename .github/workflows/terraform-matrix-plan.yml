@@ -87,6 +87,23 @@ jobs:
           client-id: ${{ secrets.AZURE_PLAN_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Negative test - plan identity must not write
+        run: |
+          set +e
+          az group create -n rg-plan-negtest -l eastus2 > out.txt 2>&1
+          rc=$?
+          cat out.txt
+          if [ $rc -eq 0 ]; then
+            echo "UNEXPECTED: write succeeded"
+            az group delete -n rg-plan-negtest --yes
+            exit 1
+          fi
+            if grep -q AuthorizationFailed out.txt; then
+            echo "Confirmed read-only"
+          else
+            echo "Failed for a different reason - check output above"
+            exit 1
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -207,12 +224,6 @@ jobs:
                 body: comment
               });
             }
-      - name: Negative test - plan identity must not write
-        run: |
-          if az group create -n rg-plan-negtest -l eastus2 2>&1 | tee out.txt; then
-          echo "UNEXPECTED: write succeeded"; az group delete -n rg-plan-negtest --yes; exit 1
-          fi
-          grep -q AuthorizationFailed out.txt && echo "Confirmed read-only"
 
   no-changes:
     name: No CI-Enabled Modules Changed
