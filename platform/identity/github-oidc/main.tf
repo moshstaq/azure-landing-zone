@@ -79,3 +79,41 @@ resource "azuread_application_federated_identity_credential" "pull_request" {
 }
 
 
+# -----------------------------------------------------
+# AAD Applications for Plan identity (read-only): PR plans and drift
+# -----------------------------------------------------
+resource "azuread_application" "plan" {
+  display_name = "sp-github-actions-azure-landing-zone-plan"
+}
+# -----------------------------------------------------
+# Service Principals for Plan identity (read-only): PR plans and drift
+# -----------------------------------------------------
+resource "azuread_service_principal" "github_actions_plan" {
+
+  client_id = azuread_application.plan.client_id
+}
+
+# -----------------------------------------------------
+# Federated Credential — main branch PR plans and drift
+# -----------------------------------------------------
+resource "azuread_application_federated_identity_credential" "plan_main_branch" {
+  application_id = azuread_application.plan.id
+  display_name   = "github-main-branch"
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_org}/azure-landing-zone:ref:refs/heads/main"
+  audiences      = ["api://AzureADTokenExchange"]
+  description    = "Trust GitHub Actions from main branch"
+}
+
+# -----------------------------------------------------
+# Federated Credential — pull requests  PR plans and drift
+# -----------------------------------------------------
+resource "azuread_application_federated_identity_credential" "plan_pull_request" {
+  application_id = azuread_application.plan.id
+  display_name   = "github-pull-requests"
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_org}/azure-landing-zone:pull_request"
+  audiences      = ["api://AzureADTokenExchange"]
+  description    = "Trust GitHub Actions from pull requests"
+}
+
