@@ -63,6 +63,21 @@ resource "azurerm_role_assignment" "landing_zone_management_group_reader" {
   principal_id         = azuread_service_principal.github_actions["azure-landing-zone"].object_id
 }
 
+#-------------------------------------------------------------
+#Assignment PR plans and drift
+#---------------------------------------------------------
+resource "azurerm_role_assignment" "plan_tfstate_blob" {
+  scope                = data.azurerm_resource_group.tfstate.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azuread_service_principal.github_actions_plan.object_id
+}
+
+resource "azurerm_role_assignment" "plan_mg_reader" {
+  scope                = data.azurerm_management_group.root.id
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.github_actions_plan.object_id
+}
+
 # -----------------------------------------------------
 # taskflow-platform SP
 # Contributor on rg-taskflow for all workload resources
