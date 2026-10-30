@@ -2,7 +2,7 @@ name: Platform Plan
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - "platform/**"
       - ".github/workflows/terraform-matrix-plan.yml"
@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 env:
-  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_ID: ${{ secrets.AZURE_PLAN_CLIENT_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_USE_OIDC: true
@@ -84,7 +84,7 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-id: ${{ secrets.AZURE_PLAN_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
@@ -130,7 +130,7 @@ jobs:
 
   comment:
     name: Post PR Comment
-    needs: [ detect-changes, plan ]
+    needs: [detect-changes, plan]
     if: always() && needs.detect-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     steps:
