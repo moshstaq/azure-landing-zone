@@ -4,7 +4,7 @@
       "name": "platform-connectivity",
       "path": "platform/connectivity",
       "tier": 1,
-      "ci_enabled": false
+      "ci_enabled": true
     },
     {
       "name": "platform-management",
