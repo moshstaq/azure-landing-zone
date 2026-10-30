@@ -207,6 +207,12 @@ jobs:
                 body: comment
               });
             }
+      - name: Negative test - plan identity must not write
+        run: |
+          if az group create -n rg-plan-negtest -l eastus2 2>&1 | tee out.txt; then
+          echo "UNEXPECTED: write succeeded"; az group delete -n rg-plan-negtest --yes; exit 1
+          fi
+          grep -q AuthorizationFailed out.txt && echo "Confirmed read-only"
 
   no-changes:
     name: No CI-Enabled Modules Changed
