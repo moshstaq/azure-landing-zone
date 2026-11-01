@@ -1,8 +1,10 @@
 terraform {
   backend "azurerm" {
+    use_azuread_auth     = true
     resource_group_name  = "rg-tfstate"
     storage_account_name = "sttfstate7tcl"
     container_name       = "tfstate"
     key                  = "platform-github-oidc.tfstate"
   }
+
 }
