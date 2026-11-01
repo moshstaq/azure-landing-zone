@@ -56,7 +56,7 @@ resource "azuread_service_principal" "github_actions" {
 # Federated Credential — main branch
 # -----------------------------------------------------
 resource "azuread_application_federated_identity_credential" "main_branch" {
-  for_each       = var.repos
+  for_each       = { for k, v in var.repos : k => v if k != "azure-landing-zone" }
   application_id = azuread_application.github_actions[each.key].id
   display_name   = "github-main-branch"
   issuer         = "https://token.actions.githubusercontent.com"
@@ -69,7 +69,7 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
 # Federated Credential — pull requests
 # -----------------------------------------------------
 resource "azuread_application_federated_identity_credential" "pull_request" {
-  for_each       = var.repos
+  for_each       = { for k, v in var.repos : k => v if k != "azure-landing-zone" }
   application_id = azuread_application.github_actions[each.key].id
   display_name   = "github-pull-requests"
   issuer         = "https://token.actions.githubusercontent.com"
